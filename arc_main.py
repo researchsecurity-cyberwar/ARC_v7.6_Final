@@ -1,0 +1,540 @@
+import os
+import sys
+import time
+from datetime import datetime
+
+# Tambahkan root folder ke Python path
+sys.path.insert(0, os.path.abspath('.'))
+
+# Modul Inti ARC
+from SOVEREIGN_SESSION_MANAGER.credential_vault import CredentialVault
+from SOVEREIGN_SESSION_MANAGER.platform_session_manager import PlatformSessionManager
+from COGNITIVE_CORE.human_in_the_loop_gate import HumanInTheLoopGate
+from ETHICAL_ARMOR.scope_sovereignty_guard import ScopeSovereigntyGuard
+
+# Modul Telegram & Komunikasi
+from DIALOGIC_COPILLOT.PLATFORM_COMMUNICATOR.telegram_notifier import TelegramNotifier
+
+# Modul Session untuk Bug Bounty & CTF
+from SOVEREIGN_SESSION_MANAGER.bug_bounty_session import BugBountySession
+from SOVEREIGN_SESSION_MANAGER.ctf_session import CTFSession
+from SOVEREIGN_SESSION_MANAGER.config_loader import get_config_loader
+
+# Modul Intelijen & Pelaporan
+from DUPLICATE_INTELLIGENCE.report_scraper import ReportScraper
+from UNIQUE_ANGLE_GENERATOR.uniqueness_validator import UniquenessValidator
+from SOVEREIGN_REPORTING.multi_document_generator import MultiDocumentGenerator
+
+# Modul Evidence & Patch Generator
+from VERIFIABLE_EVIDENCE_ARTIFACT.behavioral_proof_recorder import BehavioralProofRecorder
+from SOVEREIGN_REPORTING.PATCH_GENERATOR.web_patch_factory import WebPatchFactory
+
+# Modul Platform-Specific Submitters
+from SOVEREIGN_REPORTING.PLATFORM_SPECIFIC_SUBMITTER.hackerone_submitter import HackerOneSubmitter
+from SOVEREIGN_REPORTING.PLATFORM_SPECIFIC_SUBMITTER.intigriti_submitter import IntigritiSubmitter
+from SOVEREIGN_REPORTING.PLATFORM_SPECIFIC_SUBMITTER.bugcrowd_submitter import BugCrowdSubmitter
+from SOVEREIGN_REPORTING.PLATFORM_SPECIFIC_SUBMITTER.yeswehack_submitter import YesWeHackSubmitter
+from SOVEREIGN_REPORTING.PLATFORM_SPECIFIC_SUBMITTER.immunefi_submitter import ImmunefiSubmitter
+
+# Modul Scraper untuk Intelijen
+from SHADOW_INTELLIGENCE_RADAR.direct_platform_monitor.bug_bounty_monitor.hackerone_scraper import HackerOneScraper
+from SHADOW_INTELLIGENCE_RADAR.direct_platform_monitor.bug_bounty_monitor.bugcrowd_scraper import BugCrowdScraper
+from SHADOW_INTELLIGENCE_RADAR.direct_platform_monitor.bug_bounty_monitor.intigriti_scraper import IntigritiScraper
+from SHADOW_INTELLIGENCE_RADAR.direct_platform_monitor.bug_bounty_monitor.yeswehack_scraper import YesWeHackScraper
+from SHADOW_INTELLIGENCE_RADAR.direct_platform_monitor.bug_bounty_monitor.immunefi_scraper import ImmunefiScraper
+
+# Modul Self-Learning Engine
+from UNIFIED_LEARNING_ENGINE.self_learning_orchestrator import SelfLearningOrchestrator
+from UNIFIED_LEARNING_ENGINE.learning_bridge import LearningBridge
+from UNIFIED_LEARNING_ENGINE.ctf_challenge_analyzer import CTFChallengeAnalyzer
+from UNIFIED_LEARNING_ENGINE.platform_writeup_scraper import PlatformWriteupScraper
+
+# Modul Vulnerability Detectors (Web Security)
+from VULNERABILITY_DETECTORS.web_security.xss_detector import XSSDetector
+from VULNERABILITY_DETECTORS.web_security.sqli_scanner import SQLiScanner
+from VULNERABILITY_DETECTORS.web_security.ssrf_hunter import SSRFHunter
+from VULNERABILITY_DETECTORS.web_security.idor_analyzer import IDORAnalyzer
+from VULNERABILITY_DETECTORS.web_security.csrf_validator import CSRFValidator
+from VULNERABILITY_DETECTORS.web_security.lfi_scanner import LFIScanner
+from VULNERABILITY_DETECTORS.web_security.rfi_scanner import RFIScanner
+from VULNERABILITY_DETECTORS.web_security.command_injection_scanner import CommandInjectionScanner
+from VULNERABILITY_DETECTORS.web_security.modern_web_analyzer import ModernWebAnalyzer
+from VULNERABILITY_DETECTORS.web_security.backdoor_hunter import BackdoorHunter
+
+# Modul APISecurity
+from VULNERABILITY_DETECTORS.api_security.bola_scanner import BOLAScanner
+from VULNERABILITY_DETECTORS.api_security.mass_assignment_tester import MassAssignmentTester
+
+# JWTValidator - OPSIONAL (membutuhkan PyJWT)
+try:
+    from VULNERABILITY_DETECTORS.api_security.jwt_validator import JWTValidator
+    JWT_AVAILABLE = True
+except ImportError:
+    JWTValidator = None
+    JWT_AVAILABLE = False
+    print("⚠️ JWTValidator tidak tersedia - modul PyJWT belum diinstall")
+
+# Modul Ethic & Compliance
+from ETHICAL_ARMOR.audit_trail_logger import AuditTrailLogger
+from ETHICAL_ARMOR.zero_trust_execution import ZeroTrustExecution
+from ETHICAL_ARMOR.data_minimization_enforcer import DataMinimizationEnforcer
+from ETHICAL_ARMOR.chain_ethics_lock import ChainEthicsLock
+
+# SovereignReasoner - OPSIONAL (hanya aktif jika llama_cpp tersedia)
+try:
+    from COGNITIVE_CORE.sovereign_reasoner import SovereignReasoner
+    SOVEREIGN_REASONER_AVAILABLE = True
+except ImportError:
+    SovereignReasoner = None
+    SOVEREIGN_REASONER_AVAILABLE = False
+    print("⚠️ SovereignReasoner (llama_cpp) tidak tersedia - berjalan tanpa AI reasoning")
+
+class ARCOrchestrator:
+    """Orkestrator utama ARC v7.6 Final"""
+    
+    def __init__(self):
+        print(f"🚀 Initializing ARC v7.6 Final • {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        
+        # 1. Inisialisasi komponen dasar
+        self.credential_vault = CredentialVault()
+        self.config_loader = get_config_loader()  # Loader config.yaml terpusat
+        self.scope_guard = ScopeSovereigntyGuard()
+        
+        # 2. Inisialisasi Telegram & Human-in-the-Loop
+        self.telegram_notifier = TelegramNotifier()
+        self.human_in_the_loop_gate = HumanInTheLoopGate(
+            telegram_notifier=self.telegram_notifier
+        )
+        
+        # 3. Inisialisasi session manager
+        self.session_manager = PlatformSessionManager(self.credential_vault)
+        self.bug_bounty_session = BugBountySession(self.credential_vault)
+        self.ctf_session = CTFSession(self.credential_vault)
+        
+        # 4. Inisialisasi evidence & patch generator
+        self.evidence_generator = BehavioralProofRecorder()
+        self.patch_generator = WebPatchFactory()
+        
+        # 5. Inisialisasi platform-specific submitters
+        self.submitters = {}
+        self._initialize_submitters()
+        
+        # 6. Inisialisasi scraper untuk intelijen
+        self.scrapers = {}
+        self._initialize_scrapers()
+        
+        # 7. Set integrasi timbal balik
+        self.telegram_notifier.set_human_in_the_loop_gate(self.human_in_the_loop_gate)
+        self.telegram_notifier.set_session_manager(self.session_manager)
+        self.telegram_notifier.set_evidence_generator(self.evidence_generator)
+        self.telegram_notifier.set_patch_generator(self.patch_generator)
+        self.human_in_the_loop_gate.set_evidence_generator(self.evidence_generator)
+        self.human_in_the_loop_gate.set_patch_generator(self.patch_generator)
+        self.human_in_the_loop_gate.set_telegram_notifier(self.telegram_notifier)
+        
+        # 8. Inisialisasi komponen intelijen
+        self.report_scraper = ReportScraper()
+        self.uniqueness_validator = UniquenessValidator()
+        self.report_generator = MultiDocumentGenerator()
+        
+        # 9. Inisialisasi self-learning engine (SEBELUM detectors)
+        self.self_learning_orchestrator = SelfLearningOrchestrator()
+        print("✅ Self-Learning Engine initialized")
+        
+        # 9b. Inisialisasi Learning Bridge (jembatan universal ke semua komponen)
+        self.learning_bridge = LearningBridge(self.self_learning_orchestrator)
+        print("✅ Learning Bridge initialized - menghubungkan SEMUA komponen ke self-learning")
+        
+        # 10. Inisialisasi vulnerability detectors (setelah learning engine)
+        self._initialize_vulnerability_detectors()
+        
+        # 10b. Hubungkan sumber pembelajaran tambahan (CTF, writeups)
+        self._connect_learning_sources()
+        
+        # 11. Inisialisasi ethical armor
+        self._initialize_ethical_armor()
+        
+        # 12. Inisialisasi cognitive core (opsional)
+        self.sovereign_reasoner = None
+        self._initialize_sovereign_reasoner()
+        
+        print("✅ All ARC components initialized successfully!")
+        print("✅ Agent is now self-learning enabled")
+    
+    def _initialize_sovereign_reasoner(self):
+        """Inisialisasi SovereignReasoner jika tersedia."""
+        if SOVEREIGN_REASONER_AVAILABLE and SovereignReasoner is not None:
+            try:
+                self.sovereign_reasoner = SovereignReasoner()
+                print("✅ Sovereign Reasoner initialized (AI mode)")
+            except Exception as e:
+                print(f"⚠️ Sovereign Reasoner init failed: {e}")
+                print("✅ ARC berjalan tanpa AI reasoning (fallback mode)")
+        else:
+            print("ℹ️ Sovereign Reasoner disabled - install llama-cpp-python untuk mengaktifkan")
+    
+    def _initialize_vulnerability_detectors(self):
+        """Inisialisasi semua vulnerability detectors."""
+        self.detectors = {}
+        
+        # Web Security Detectors
+        self.detectors['xss'] = XSSDetector()
+        self.detectors['sqli'] = SQLiScanner()
+        self.detectors['ssrf'] = SSRFHunter()
+        self.detectors['idor'] = IDORAnalyzer()
+        self.detectors['csrf'] = CSRFValidator()
+        self.detectors['lfi'] = LFIScanner()
+        self.detectors['rfi'] = RFIScanner()
+        self.detectors['command_injection'] = CommandInjectionScanner()
+        self.detectors['modern_web'] = ModernWebAnalyzer()
+        self.detectors['backdoor'] = BackdoorHunter()
+        
+        # API Security Detectors
+        self.detectors['bola'] = BOLAScanner()
+        if JWT_AVAILABLE and JWTValidator is not None:
+            self.detectors['jwt'] = JWTValidator()
+        self.detectors['mass_assignment'] = MassAssignmentTester()
+        
+        # Connect SEMUA detectors ke learning bridge (bukan langsung ke orchestrator)
+        # Bridge meneruskan ke orchestrator asli dan mencegah duplikasi kode
+        for name, detector in self.detectors.items():
+            self.learning_bridge.attach_detector(name, detector)
+        
+        print(f"✅ Initialized {len(self.detectors)} vulnerability detectors and connected to learning bridge")
+    
+    def _connect_learning_sources(self):
+        """Hubungkan sumber pembelajaran tambahan (CTF, writeups) ke self-learning."""
+        # 1. CTF Challenge Analyzer - belajar dari solusi CTF
+        try:
+            self.ctf_analyzer = CTFChallengeAnalyzer()
+            self.ctf_analyzer.learning_bridge = self.learning_bridge
+            print("✅ CTF Challenge Analyzer connected to learning bridge")
+        except Exception as e:
+            print(f"⚠️ CTF Challenge Analyzer init failed: {e}")
+            self.ctf_analyzer = None
+        
+        # 2. Platform Writeup Scraper - belajar dari writeup bug bounty
+        try:
+            self.writeup_scraper = PlatformWriteupScraper(learning_bridge=self.learning_bridge)
+            print("✅ Platform Writeup Scraper connected to learning bridge")
+        except Exception as e:
+            print(f"⚠️ Platform Writeup Scraper init failed: {e}")
+            self.writeup_scraper = None
+    
+    def _initialize_ethical_armor(self):
+        """Inisialisasi modul ethical armor."""
+        self.audit_logger = AuditTrailLogger()
+        self.zero_trust = ZeroTrustExecution()
+        self.data_minimizer = DataMinimizationEnforcer()
+        self.ethics_lock = ChainEthicsLock()
+        print("✅ Initialized ethical armor modules")
+    
+    def _initialize_submitters(self):
+        """Inisialisasi platform-specific submitters dengan kredensial valid.
+        Prioritas: config.yaml > CredentialVault GPG
+        """
+        credentials = self.credential_vault.load_all_credentials()
+        
+        # HackerOne - gunakan API token
+        h1_creds = self._merge_credentials('hackerone', credentials)
+        if h1_creds and h1_creds.get('api_token'):
+            self.submitters['hackerone'] = HackerOneSubmitter(h1_creds['api_token'])
+            self.submitters['hackerone'].set_evidence_generator(self.evidence_generator)
+            self.submitters['hackerone'].set_patch_generator(self.patch_generator)
+        
+        # Intigriti - gunakan Personal Access Token
+        intigriti_creds = self._merge_credentials('intigriti', credentials)
+        if intigriti_creds and intigriti_creds.get('personal_access_token'):
+            self.submitters['intigriti'] = IntigritiSubmitter(intigriti_creds['personal_access_token'])
+            self.submitters['intigriti'].set_evidence_generator(self.evidence_generator)
+            self.submitters['intigriti'].set_patch_generator(self.patch_generator)
+        
+        # Platform lain - gunakan session cookie
+        for platform in ['bugcrowd', 'yeswehack', 'immunefi']:
+            creds = self._merge_credentials(platform, credentials)
+            if creds and creds.get('session_cookie'):
+                if platform == 'bugcrowd':
+                    self.submitters['bugcrowd'] = BugCrowdSubmitter(creds['session_cookie'])
+                elif platform == 'yeswehack':
+                    self.submitters['yeswehack'] = YesWeHackSubmitter(creds['session_cookie'])
+                elif platform == 'immunefi':
+                    self.submitters['immunefi'] = ImmunefiSubmitter(creds['session_cookie'])
+                
+                if platform in self.submitters:
+                    self.submitters[platform].set_evidence_generator(self.evidence_generator)
+                    self.submitters[platform].set_patch_generator(self.patch_generator)
+    
+    def _merge_credentials(self, platform, vault_credentials):
+        """
+        Gabungkan kredensial dari config.yaml dan CredentialVault.
+        Prioritas: config.yaml > CredentialVault
+        """
+        # 1. Dari config.yaml
+        yaml_creds = self.config_loader.get_platform_credentials(platform)
+        
+        # 2. Dari CredentialVault GPG
+        vault_creds = self._get_vault_credentials(vault_credentials, platform)
+        
+        # Gabungkan: config.yaml menang jika ada
+        if yaml_creds and any(yaml_creds.values()):
+            merged = dict(vault_creds)
+            merged.update({k: v for k, v in yaml_creds.items() if v})
+            return merged
+        return vault_creds
+
+    def _get_vault_credentials(self, credentials, platform):
+        """Dapatkan kredensial dari vault untuk platform tertentu."""
+        bug_bounty_creds = credentials.get('bug_bounty', {})
+        ctf_creds = credentials.get('ctf', {})
+        
+        all_creds = {**bug_bounty_creds, **ctf_creds}
+        
+        # Coba berbagai naming convention
+        possible_keys = [
+            f'{platform}_researcher',
+            f'{platform}_corp', 
+            f'{platform}_bounty',
+            f'{platform}_main',
+            f'{platform}_personal',
+            f'{platform}_pro',
+            f'{platform}_student'
+        ]
+        
+        for key in possible_keys:
+            if key in all_creds:
+                return all_creds[key]
+        
+        return {}
+    
+    def _get_platform_credentials(self, credentials, platform):
+        """Dapatkan kredensial untuk platform tertentu (backward compat)."""
+        return self._merge_credentials(platform, credentials)
+    
+    def _initialize_scrapers(self):
+        """Inisialisasi scraper berdasarkan kredensial yang tersedia.
+        Prioritas: config.yaml > CredentialVault GPG
+        """
+        credentials = self.credential_vault.load_all_credentials()
+        
+        # HackerOne
+        h1_creds = self._merge_credentials('hackerone', credentials)
+        if h1_creds and h1_creds.get('api_token'):
+            self.scrapers['hackerone'] = HackerOneScraper(h1_creds['api_token'])
+        
+        # Intigriti  
+        intigriti_creds = self._merge_credentials('intigriti', credentials)
+        if intigriti_creds and intigriti_creds.get('personal_access_token'):
+            self.scrapers['intigriti'] = IntigritiScraper(intigriti_creds['personal_access_token'])
+        
+        # Platform lain
+        for platform in ['bugcrowd', 'yeswehack', 'immunefi']:
+            creds = self._merge_credentials(platform, credentials)
+            if creds and creds.get('session_cookie'):
+                if platform == 'bugcrowd':
+                    self.scrapers['bugcrowd'] = BugCrowdScraper(creds['session_cookie'])
+                elif platform == 'yeswehack':
+                    self.scrapers['yeswehack'] = YesWeHackScraper(creds['session_cookie'])
+                elif platform == 'immunefi':
+                    self.scrapers['immunefi'] = ImmunefiScraper(creds['session_cookie'])
+
+        # CTF platform scrapers (jika key tersedia di config.yaml)
+        htb_creds = self.config_loader.get_platform_credentials('hackthebox')
+        if htb_creds and htb_creds.get('session_cookie'):
+            try:
+                from SHADOW_INTELLIGENCE_RADAR.direct_platform_monitor.ctf_monitor.hackthebox_scraper import HackTheBoxScraper
+                self.scrapers['hackthebox'] = HackTheBoxScraper(htb_creds['session_cookie'])
+            except Exception:
+                pass
+        
+        thm_creds = self.config_loader.get_platform_credentials('tryhackme')
+        if thm_creds and thm_creds.get('session_cookie'):
+            try:
+                from SHADOW_INTELLIGENCE_RADAR.direct_platform_monitor.ctf_monitor.tryhackme_scraper import TryHackMeScraper
+                self.scrapers['tryhackme'] = TryHackMeScraper(thm_creds['session_cookie'])
+            except Exception:
+                pass
+    
+    def start_autonomous_operations(self):
+        """Mulai operasi otonom 24/7"""
+        print("▶️ Starting autonomous operations...")
+        self.telegram_notifier.send_notification(
+            "▶️ <b>AUTONOMOUS OPERATIONS STARTED</b>\n\n"
+            "ARC v7.6 Final is now running 24/7 with full capabilities:\n"
+            "• Continuous reconnaissance\n• Vulnerability detection\n"
+            "• Economic exploit simulation\n• Report submission\n• Income optimization"
+        )
+        
+        # Loop operasi utama
+        while True:
+            try:
+                # 1. Perbarui intelijen dari semua platform
+                self._update_intelligence_feed()
+                
+                # 2. Analisis temuan baru
+                findings = self._analyze_new_findings()
+                
+                # 3. Validasi keunikan & duplikat
+                validated_findings = self._validate_findings(findings)
+                
+                # 4. Generate laporan untuk temuan unik
+                for finding in validated_findings:
+                    if self._requires_human_approval(finding):
+                        self._request_human_approval(finding)
+                    else:
+                        self._submit_automatically(finding)
+                
+                # Tunggu sebelum siklus berikutnya (30 menit)
+                time.sleep(1800)
+                
+            except KeyboardInterrupt:
+                print("\n⏹️ Autonomous operations stopped by user")
+                break
+            except Exception as e:
+                error_msg = f"❌ Error in autonomous loop: {str(e)}"
+                print(error_msg)
+                self.telegram_notifier.send_notification(
+                    f"❌ <b>AUTONOMOUS LOOP ERROR</b>\n{error_msg}"
+                )
+                time.sleep(300)  # Tunggu 5 menit sebelum retry
+    
+    def _update_intelligence_feed(self):
+        """Perbarui feed intelijen dari semua platform"""
+        print("📡 Updating intelligence feed...")
+        
+        # Inisialisasi scraper jika belum ada
+        if not self.scrapers:
+            self._initialize_scrapers()
+        
+        # 1. Scraping Program Intel
+        for platform, scraper in self.scrapers.items():
+            try:
+                programs = scraper.get_all_programs()
+                print(f"✅ Found {len(programs)} programs on {platform}")
+                self._cache_program_intelligence(platform, programs)
+            except Exception as e:
+                print(f"⚠️ Failed to scrape {platform}: {e}")
+
+        # 1b. Scrap writeup bug bounty untuk pembelajaran AI
+        if hasattr(self, 'writeup_scraper') and self.writeup_scraper:
+            try:
+                writeup_results = self.writeup_scraper.scrape_all_platforms()
+                total_writeups = writeup_results.get('total_writeups', 0)
+                fed_to_learning = writeup_results.get('learning_insights_fed', 0)
+                if total_writeups > 0:
+                    print(f"✅ Scraped {total_writeups} writeups, fed {fed_to_learning} to self-learning")
+            except Exception as e:
+                print(f"⚠️ Writeup scraping failed: {e}")
+
+        # 2. Update CVE/CWE OSINT
+        try:
+            from INFRASTRUCTURE.cve_osint_updater import CVEOSINTUpdater
+            cve_updater = CVEOSINTUpdater()
+            threat_result = cve_updater.update_realtime_threats(days_back=1)
+            
+            if threat_result.get('success'):
+                # Integrasikan CVE ke self-learning engine
+                threat_data = cve_updater.get_latest_threat_data()
+                if threat_data:
+                    self.self_learning_orchestrator.integrate_threat_intelligence(threat_data)
+                    print("✅ CVE threat intelligence integrated into self-learning engine")
+                
+                # Integrasikan CWE ke self-learning engine
+                cwe_data = cve_updater.get_latest_cwe_data()
+                if cwe_data:
+                    self.self_learning_orchestrator.integrate_cwe_data(cwe_data)
+                    print("✅ CWE data integrated into self-learning engine")
+        except Exception as e:
+            print(f"⚠️ Failed to update threat intelligence: {e}")
+        
+        # 3. Hubungkan temuan dari semua detektor ke self-learning via LEARNING BRIDGE
+        self._connect_detector_findings_to_learning()
+    
+    def _connect_detector_findings_to_learning(self):
+        """Hubungkan temuan dari semua detektor ke self-learning via learning bridge."""
+        # Sinkronkan semua detector yang terhubung ke bridge
+        synced = self.learning_bridge.sync_all_detectors()
+        if synced > 0:
+            print(f"✅ Synced {synced} findings from all detectors to learning engine")
+    
+    def _cache_program_intelligence(self, platform, programs):
+        """Simpan intelijen program ke cache."""
+        # Implementasi aktual akan menyimpan ke database atau file
+        pass
+    
+    def _analyze_new_findings(self):
+        """Analisis temuan baru menggunakan cognitive core dan detectors."""
+        print("🧠 Analyzing new findings...")
+        findings = []
+        
+        # Get learning-based recommendations
+        learning_context = {"operation": "finding_analysis", "timestamp": time.time()}
+        recommendations = self.self_learning_orchestrator.get_learning_recommendations(
+            learning_context, "vulnerability_scan"
+        )
+        print(f"💡 Learning Engine Recommendations: {recommendations.get('success_probability', 0.5)*100}% success probability")
+
+        # Gunakan SovereignReasoner jika tersedia
+        if self.sovereign_reasoner:
+            try:
+                analysis = self.sovereign_reasoner.analyze_vulnerability(
+                    target_info="scanning_programs",
+                    vulnerability_type="multi_surface"
+                )
+                print(f"🧠 AI Analysis: {analysis[:100]}...")
+            except Exception as e:
+                print(f"⚠️ AI analysis failed: {e}")
+        
+        # Implementasi aktual akan menggunakan vulnerability detectors
+        return findings
+    
+    def _validate_findings(self, findings):
+        """Validasi keunikan temuan"""
+        print("🔍 Validating findings uniqueness...")
+        validated = []
+        for finding in findings:
+            if self.uniqueness_validator.validate_uniqueness(finding)['is_unique']:
+                validated.append(finding)
+        return validated
+    
+    def _requires_human_approval(self, finding):
+        """Tentukan apakah temuan memerlukan approval manusia"""
+        risk_score = finding.get('risk_score', 0)
+        operation_type = finding.get('operation_type', 'report_submission')
+        return self.human_in_the_loop_gate.requires_approval(operation_type, risk_score)
+    
+    def _request_human_approval(self, finding):
+        """Minta approval manusia untuk temuan berisiko tinggi"""
+        print(f"⚠️ Requesting human approval for finding: {finding.get('id', 'N/A')}")
+        self.human_in_the_loop_gate.request_approval(finding)
+    
+    def _submit_automatically(self, finding):
+        """Kirim laporan secara otomatis untuk temuan aman"""
+        platform = finding.get('platform')
+        if platform in self.submitters and self.submitters[platform]:
+            try:
+                result = self.submitters[platform].submit_report(
+                    finding.get('program_handle'),
+                    finding,
+                    finding.get('evidence_files', [])
+                )
+                print(f"✅ Auto-submission result for {platform}: {result.get('success', False)}")
+            except Exception as e:
+                print(f"❌ Auto-submission failed for {platform}: {e}")
+        else:
+            print(f"⚠️ No submitter available for {platform}, skipping auto-submission")
+
+def main():
+    """Fungsi utama ARC v7.6 Final"""
+    try:
+        # Buat instance orchestrator
+        arc = ARCOrchestrator()
+        
+        # Mulai operasi
+        arc.start_autonomous_operations()
+        
+    except Exception as e:
+        print(f"💥 Fatal error: {str(e)}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,90 @@
+# ============================================================
+# ARC v7.6 Final - Konfigurasi Terpusat
+# Copy file ini ke: ~/.arc/config.yaml
+# ============================================================
+
+credentials:
+  # ==========================================================
+  # API KEYS - Semua API key yang dibutuhkan sistem
+  # ==========================================================
+  api_keys:
+    # NVD API Key (GRATIS): https://nvd.nist.gov/developers/request-an-api-key
+    # Tanpa API key: 5 request / 30 detik
+    # Dengan API key: 50 request / 30 detik
+    nvd: "MASUKKAN_NVD_API_KEY_ANDA_DISINI"
+
+    # Shodan (opsional, untuk recon): https://account.shodan.io/
+    shodan: ""
+
+    # GitHub Token (opsional, untuk secret hunter): https://github.com/settings/tokens
+    github: ""
+
+  # ==========================================================
+  # BUG BOUNTY PLATFORMS
+  # ==========================================================
+  bug_bounty:
+    # Platform dengan API token permanen (tidak perlu update manual - berjalan selamanya)
+    hackerone_main:
+      api_token: "h1_your_actual_api_token_here"  # H1 → Settings → API Tokens
+
+    intigriti_personal:
+      personal_access_token: "intigriti_your_token_here"  # Intigriti → Account → API Tokens
+  
+    # Platform TANPA API dan TANPA AUTO-LOGIN (session cookie manual - login sekali, salin cookie)
+    # BugCrowd menggunakan OAuth 2.0 + Okta yang tidak bisa diautomasi
+    bugcrowd_corp:
+      session_cookie: "_bugcrowd_session=real_value_from_browser; XSRF-TOKEN=real_value"
+    
+    yeswehack_researcher:
+      session_cookie: "session=real_value_from_browser; XSRF-TOKEN=real_value"
+    
+    immunefi_bounty:
+      session_cookie: "sessionid=real_value_from_browser; csrftoken=real_value"
+  
+  # ==========================================================
+  # CTF PLATFORMS
+  # ==========================================================
+  ctf:
+    # Platform CTF TANPA API (session cookie manual - login sekali, salin cookie)
+    # HTB dan THM tidak memiliki form login yang bisa diautomasi
+    hackthebox_pro:
+      session_cookie: "htb_session=real_value_from_browser"
+    
+    tryhackme_student:
+      session_cookie: "connect.sid=real_value_from_browser"
+
+# ============================================================
+# AGENT CONFIGURATION (opsional)
+# ============================================================
+agent:
+  # Interval autonomous loop dalam detik (default: 1800 = 30 menit)
+  loop_interval_seconds: 1800
+
+  # Auto-retrain self-learning setelah N experience
+  retrain_threshold: 10
+
+  # Auto-submit laporan tanpa human approval? (false = lebih aman)
+  auto_submit_reports: false
+
+  # Hanya submit temuan dengan severity >= ini
+  min_severity: "medium"  # low, medium, high, critical
+
+# ============================================================
+# TELEGRAM NOTIFICATION (opsional)
+# ============================================================
+telegram:
+  bot_token: ""
+  chat_id: ""
+
+# ============================================================
+# EVIDENCE & REPORTING (opsional)
+# ============================================================
+reporting:
+  # Format laporan yang dihasilkan
+  formats: ["markdown", "pdf"]
+  
+  # Simpan evidence otomatis
+  save_evidence: true
+  
+  # Notarisasi evidence (blockchain timestamping - opsional)
+  notarize_evidence: false

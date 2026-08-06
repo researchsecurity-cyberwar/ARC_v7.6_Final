@@ -1,0 +1,51 @@
+# ============================================================
+# ARC v7.6 Final - Python Dependencies
+# ============================================================
+# NOTE: CLI tools (nuclei, amass, httpx, gau, dalfox, ffuf)
+# are NOT pip packages. Install them separately on Kali Linux:
+#   sudo apt install nuclei amass sqlmap
+#   go install github.com/projectdiscovery/httpx/cmd/httpx@latest
+#   go install github.com/lc/gau@latest
+#   go install github.com/projectdiscovery/dalfox/v2/cmd/dalfox@latest
+#   go install github.com/ffuf/ffuf/v2@latest
+# ============================================================
+
+# Core Dependencies
+requests>=2.31.0
+beautifulsoup4>=4.12.2
+lxml>=4.9.3
+PyYAML>=6.0.1
+stem>=1.8.2
+networkx>=3.2.1
+cryptography>=41.0.7
+pycryptodome>=3.19.0
+rich>=13.7.0
+watchdog>=3.0.0
+PyJWT>=2.8.0
+boto3>=1.34.0
+websockets>=12.0
+psutil>=5.9.5
+colorama>=0.4.6
+
+# Browser Automation
+playwright>=1.40.0
+
+# AI & LLM Support (optional - graceful fallback if not installed)
+llama-cpp-python>=0.2.48
+numpy>=1.24.3
+
+# Web3 & DeFi Analysis (optional - graceful fallback if not installed)
+web3>=6.12.0
+slither-analyzer>=0.9.0
+
+# CTF & Binary Analysis (optional - graceful fallback if not installed)
+pwntools>=4.9.0
+capstone>=5.0.1
+
+# Forensics & Network Analysis (optional - graceful fallback if not installed)
+scapy>=2.4.5
+
+# Development & Testing
+pytest>=7.4.0
+black>=23.7.0
+flake8>=6.0.0
