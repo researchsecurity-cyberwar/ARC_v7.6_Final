@@ -26,6 +26,7 @@ boto3>=1.34.0
 websockets>=12.0
 psutil>=5.9.5
 colorama>=0.4.6
+python-telegram-bot==20.7
 
 # Browser Automation
 playwright>=1.40.0
