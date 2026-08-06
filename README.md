@@ -204,8 +204,8 @@ Note: Core sovereign modules (COGNITIVE_CORE, ETHICAL_ARMOR) are not open for ex
 
 🙏 Acknowledgments
 Indonesian Cyber Community: For inspiration and sovereign mindset
-Open Source Security Tools: nuclei, dalfox, amass, httpx, gau, slither, mythril
-Research Communities: Immunefi, HackerOne, Bugcrowd, CTFtime
+Open Source Security Tools: nuclei, dalfox, amass, httpx, gau, slither, mythril, ffuf
+Research Communities: Immunefi, HackerOne, Bugcrowd, Intigriti, YesWeHack, CTFtime
 Academic Research: MITRE ATT&CK, OWASP, CWE, CVE Program
 
 📞 Contact
