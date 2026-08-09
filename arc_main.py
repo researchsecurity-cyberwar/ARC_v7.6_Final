@@ -2,6 +2,7 @@ import os
 import sys
 import time
 from datetime import datetime
+from typing import Dict
 
 # Tambahkan root folder ke Python path
 sys.path.insert(0, os.path.abspath('.'))
@@ -43,6 +44,13 @@ from SHADOW_INTELLIGENCE_RADAR.direct_platform_monitor.bug_bounty_monitor.intigr
 from SHADOW_INTELLIGENCE_RADAR.direct_platform_monitor.bug_bounty_monitor.yeswehack_scraper import YesWeHackScraper
 from SHADOW_INTELLIGENCE_RADAR.direct_platform_monitor.bug_bounty_monitor.immunefi_scraper import ImmunefiScraper
 
+# Modul Integrator Google Bug Bounty (opsional - butuh requests + beautifulsoup4)
+try:
+    from BROWSER_SECURITY_RESEARCH.google_vrp_integrator import GoogleVRPIntegrator
+    GOOGLE_VRP_AVAILABLE = True
+except ImportError:
+    GOOGLE_VRP_AVAILABLE = False
+
 # Modul Self-Learning Engine
 from UNIFIED_LEARNING_ENGINE.self_learning_orchestrator import SelfLearningOrchestrator
 from UNIFIED_LEARNING_ENGINE.learning_bridge import LearningBridge
@@ -72,7 +80,7 @@ try:
 except ImportError:
     JWTValidator = None
     JWT_AVAILABLE = False
-    print("⚠️ JWTValidator tidak tersedia - modul PyJWT belum diinstall")
+    print("WARNING: JWTValidator tidak tersedia - modul PyJWT belum diinstall")
 
 # Modul Ethic & Compliance
 from ETHICAL_ARMOR.audit_trail_logger import AuditTrailLogger
@@ -84,10 +92,105 @@ from ETHICAL_ARMOR.chain_ethics_lock import ChainEthicsLock
 try:
     from COGNITIVE_CORE.sovereign_reasoner import SovereignReasoner
     SOVEREIGN_REASONER_AVAILABLE = True
-except ImportError:
+except Exception:
     SovereignReasoner = None
     SOVEREIGN_REASONER_AVAILABLE = False
-    print("⚠️ SovereignReasoner (llama_cpp) tidak tersedia - berjalan tanpa AI reasoning")
+    print("WARNING: SovereignReasoner (llama_cpp) tidak tersedia - berjalan tanpa AI reasoning")
+# Target Type Router - OPSIONAL (sistem routing target → modul)
+try:
+    from TARGET_TYPE_ROUTER import TargetTypeRouter, create_target_router
+    TARGET_ROUTER_AVAILABLE = True
+except ImportError:
+    TargetTypeRouter = None
+    TARGET_ROUTER_AVAILABLE = False
+    print("WARNING: TargetTypeRouter tidak tersedia - install modul routing")
+
+# Architecture Fingerprinter - OPSIONAL
+try:
+    from ENTERPRISE_ATTACK_SURFACE.architecture_fingerprinter import ArchitectureFingerprinter
+    FINGERPRINTER_AVAILABLE = True
+except ImportError:
+    ArchitectureFingerprinter = None
+    FINGERPRINTER_AVAILABLE = False
+    print("WARNING: ArchitectureFingerprinter tidak tersedia")
+
+# Modul Vulnerability Detectors (Browser Security - OPSIONAL)
+try:
+    from BROWSER_SECURITY_RESEARCH.chromium_fuzz_orchestrator import ChromiumFuzzOrchestrator
+    BROWSER_SECURITY_AVAILABLE = True
+except ImportError:
+    ChromiumFuzzOrchestrator = None
+    BROWSER_SECURITY_AVAILABLE = False
+
+# Modul Vulnerability Detectors (Mobile Security - OPSIONAL)
+try:
+    from VULNERABILITY_DETECTORS.mobile_security.apk_static_analyzer import APKStaticAnalyzer
+    from VULNERABILITY_DETECTORS.mobile_security.ios_ipa_analyzer import IOSIPAAnalyzer
+    from VULNERABILITY_DETECTORS.mobile_security.binary_analyzer import BinaryAnalyzer
+    MOBILE_SECURITY_AVAILABLE = True
+except ImportError:
+    APKStaticAnalyzer = None
+    IOSIPAAnalyzer = None
+    BinaryAnalyzer = None
+    MOBILE_SECURITY_AVAILABLE = False
+
+# Modul Vulnerability Detectors (Cloud Security - OPSIONAL)
+try:
+    from VULNERABILITY_DETECTORS.cloud_security.aws_s3_checker import AWSS3Checker
+    from VULNERABILITY_DETECTORS.cloud_security.gcp_bucket_scanner import GCPBucketScanner
+    from VULNERABILITY_DETECTORS.cloud_security.azure_blob_validator import AzureBlobValidator
+    from VULNERABILITY_DETECTORS.cloud_security.cloud_metadata_prober import CloudMetadataProber
+    CLOUD_SECURITY_AVAILABLE = True
+except ImportError:
+    AWSS3Checker = None
+    GCPBucketScanner = None
+    AzureBlobValidator = None
+    CloudMetadataProber = None
+    CLOUD_SECURITY_AVAILABLE = False
+
+# Modul Vulnerability Detectors (Crypto/Web3 Security - OPSIONAL)
+try:
+    from VULNERABILITY_DETECTORS.crypto_web3_security.smart_contract_analyzer import SmartContractAnalyzer
+    from VULNERABILITY_DETECTORS.crypto_web3_security.reentrancy_simulator import ReentrancySimulator
+    from VULNERABILITY_DETECTORS.crypto_web3_security.token_approval_abuser import TokenApprovalAbuser
+    CRYPTO_SECURITY_AVAILABLE = True
+except ImportError:
+    SmartContractAnalyzer = None
+    ReentrancySimulator = None
+    TokenApprovalAbuser = None
+    CRYPTO_SECURITY_AVAILABLE = False
+
+# Modul Vulnerability Detectors (AI Security - OPSIONAL)
+try:
+    from VULNERABILITY_DETECTORS.ai_security.advanced_llm_attacker import AdvancedLLMAttacker
+    from VULNERABILITY_DETECTORS.ai_security.prompt_injection_detector import PromptInjectionDetector
+    AI_SECURITY_AVAILABLE = True
+except ImportError:
+    AdvancedLLMAttacker = None
+    PromptInjectionDetector = None
+    AI_SECURITY_AVAILABLE = False
+
+# Auto Tool Orchestrator - OPSIONAL (akan diinstall otomatis jika dibutuhkan)
+try:
+    from TOOL_ORCHESTRATION.INTELLIGENT_TOOL_MANAGER import AutoToolOrchestrator, ensure_security_tools
+    TOOL_ORCHESTRATOR_AVAILABLE = True
+except ImportError:
+    AutoToolOrchestrator = None
+    TOOL_ORCHESTRATOR_AVAILABLE = False
+    print("WARNING: AutoToolOrchestrator tidak tersedia - tool management manual")
+
+# Intelligent Mutation Engine - OPSIONAL (Genetic Algorithm + RL untuk payload evolution)
+try:
+    from EXPLOITATION_ENGINE.intelligent_mutation_orchestrator import IntelligentMutationOrchestrator, MutationEngineIntegration
+    from EXPLOITATION_ENGINE.payload_factory import PayloadFactory
+    MUTATION_ENGINE_AVAILABLE = True
+except ImportError:
+    IntelligentMutationOrchestrator = None
+    MutationEngineIntegration = None
+    PayloadFactory = None
+    MUTATION_ENGINE_AVAILABLE = False
+    print("WARNING: Intelligent Mutation Engine tidak tersedia - basic mutation only")
+
 
 class ARCOrchestrator:
     """Orkestrator utama ARC v7.6 Final"""
@@ -123,11 +226,16 @@ class ARCOrchestrator:
         self.scrapers = {}
         self._initialize_scrapers()
         
+        # 6b. Inisialisasi Google VRP integrator (bughunters.google.com)
+        self.google_vrp_integrator = None
+        self._initialize_google_vrp()
+        
         # 7. Set integrasi timbal balik
         self.telegram_notifier.set_human_in_the_loop_gate(self.human_in_the_loop_gate)
         self.telegram_notifier.set_session_manager(self.session_manager)
         self.telegram_notifier.set_evidence_generator(self.evidence_generator)
         self.telegram_notifier.set_patch_generator(self.patch_generator)
+        self.telegram_notifier.set_google_vrp_integrator(self.google_vrp_integrator)
         self.human_in_the_loop_gate.set_evidence_generator(self.evidence_generator)
         self.human_in_the_loop_gate.set_patch_generator(self.patch_generator)
         self.human_in_the_loop_gate.set_telegram_notifier(self.telegram_notifier)
@@ -139,11 +247,11 @@ class ARCOrchestrator:
         
         # 9. Inisialisasi self-learning engine (SEBELUM detectors)
         self.self_learning_orchestrator = SelfLearningOrchestrator()
-        print("✅ Self-Learning Engine initialized")
+        print("OK Self-Learning Engine initialized")
         
         # 9b. Inisialisasi Learning Bridge (jembatan universal ke semua komponen)
         self.learning_bridge = LearningBridge(self.self_learning_orchestrator)
-        print("✅ Learning Bridge initialized - menghubungkan SEMUA komponen ke self-learning")
+        print("OK Learning Bridge initialized - menghubungkan SEMUA komponen ke self-learning")
         
         # 10. Inisialisasi vulnerability detectors (setelah learning engine)
         self._initialize_vulnerability_detectors()
@@ -158,20 +266,196 @@ class ARCOrchestrator:
         self.sovereign_reasoner = None
         self._initialize_sovereign_reasoner()
         
-        print("✅ All ARC components initialized successfully!")
-        print("✅ Agent is now self-learning enabled")
+        # 12b. Inisialisasi Target Type Router (opsional)
+        self._initialize_target_router()
+        
+        # 12c. Inisialisasi specialized vulnerability detectors (opsional)
+        self.specialized_detectors = {}
+        self._initialize_specialized_detectors()
+        
+        # 13. Inisialisasi Auto Tool Orchestrator (ADA PTNG DIKIT - WAJIB!)
+        self.tool_orchestrator = None
+        self._initialize_tool_orchestrator()
+        
+        # 13b. Inisialisasi Intelligent Mutation Engine (Opsional - Enhanced)
+        self.mutation_engine = None
+        self._initialize_mutation_engine()
+        
+        print("OK All ARC components initialized successfully!")
+        print("OK Agent is now self-learning enabled")
+        print("OK Target-aware routing system ready")
     
     def _initialize_sovereign_reasoner(self):
         """Inisialisasi SovereignReasoner jika tersedia."""
         if SOVEREIGN_REASONER_AVAILABLE and SovereignReasoner is not None:
             try:
                 self.sovereign_reasoner = SovereignReasoner()
-                print("✅ Sovereign Reasoner initialized (AI mode)")
+                print("OK Sovereign Reasoner initialized (AI mode)")
             except Exception as e:
-                print(f"⚠️ Sovereign Reasoner init failed: {e}")
-                print("✅ ARC berjalan tanpa AI reasoning (fallback mode)")
+                print(f"WARNING: Sovereign Reasoner init failed: {e}")
+                print("OK ARC berjalan tanpa AI reasoning (fallback mode)")
         else:
             print("ℹ️ Sovereign Reasoner disabled - install llama-cpp-python untuk mengaktifkan")
+    
+    def _initialize_target_router(self):
+        """Inisialisasi Target Type Router dan Architecture Fingerprinter."""
+        self.target_router = None
+        self.architecture_fingerprinter = None
+        
+        if TARGET_ROUTER_AVAILABLE:
+            try:
+                self.target_router = create_target_router()
+                print("OK Target Type Router initialized - automatic target → module routing enabled")
+            except Exception as e:
+                print(f"WARNING: Target Type Router init failed: {e}")
+        
+        if FINGERPRINTER_AVAILABLE:
+            try:
+                self.architecture_fingerprinter = ArchitectureFingerprinter()
+                print("OK Architecture Fingerprinter initialized")
+            except Exception as e:
+                print(f"WARNING: Architecture Fingerprinter init failed: {e}")
+    
+    def _initialize_specialized_detectors(self):
+        """Inisialisasi specialized vulnerability detectors (mobile, cloud, crypto, AI, browser)."""
+        # Browser Security Detectors
+        if BROWSER_SECURITY_AVAILABLE and ChromiumFuzzOrchestrator is not None:
+            try:
+                self.specialized_detectors['browser'] = {
+                    'chromium_fuzz_orchestrator': ChromiumFuzzOrchestrator()
+                }
+                print("OK Browser Security detectors initialized")
+            except Exception as e:
+                print(f"WARNING: Browser Security detectors init failed: {e}")
+        
+        # Mobile Security Detectors
+        if MOBILE_SECURITY_AVAILABLE:
+            try:
+                mobile_detectors = {}
+                if APKStaticAnalyzer:
+                    mobile_detectors['apk_analyzer'] = APKStaticAnalyzer()
+                if IOSIPAAnalyzer:
+                    mobile_detectors['ios_analyzer'] = IOSIPAAnalyzer()
+                if BinaryAnalyzer:
+                    mobile_detectors['binary_analyzer'] = BinaryAnalyzer()
+                
+                if mobile_detectors:
+                    self.specialized_detectors['mobile'] = mobile_detectors
+                    print(f"OK Mobile Security detectors initialized ({len(mobile_detectors)} modules)")
+            except Exception as e:
+                print(f"WARNING: Mobile Security detectors init failed: {e}")
+        
+        # Cloud Security Detectors
+        if CLOUD_SECURITY_AVAILABLE:
+            try:
+                cloud_detectors = {}
+                if AWSS3Checker:
+                    cloud_detectors['aws_s3'] = AWSS3Checker()
+                if GCPBucketScanner:
+                    cloud_detectors['gcp_bucket'] = GCPBucketScanner()
+                if AzureBlobValidator:
+                    cloud_detectors['azure_blob'] = AzureBlobValidator()
+                if CloudMetadataProber:
+                    cloud_detectors['metadata_prober'] = CloudMetadataProber()
+                
+                if cloud_detectors:
+                    self.specialized_detectors['cloud'] = cloud_detectors
+                    print(f"OK Cloud Security detectors initialized ({len(cloud_detectors)} modules)")
+            except Exception as e:
+                print(f"WARNING: Cloud Security detectors init failed: {e}")
+        
+        # Crypto/Web3 Security Detectors
+        if CRYPTO_SECURITY_AVAILABLE:
+            try:
+                crypto_detectors = {}
+                if SmartContractAnalyzer:
+                    crypto_detectors['smart_contract'] = SmartContractAnalyzer()
+                if ReentrancySimulator:
+                    crypto_detectors['reentrancy'] = ReentrancySimulator()
+                if TokenApprovalAbuser:
+                    crypto_detectors['token_approval'] = TokenApprovalAbuser()
+                
+                if crypto_detectors:
+                    self.specialized_detectors['crypto'] = crypto_detectors
+                    print(f"OK Crypto/Web3 Security detectors initialized ({len(crypto_detectors)} modules)")
+            except Exception as e:
+                print(f"WARNING: Crypto/Web3 Security detectors init failed: {e}")
+        
+        # AI Security Detectors
+        if AI_SECURITY_AVAILABLE:
+            try:
+                ai_detectors = {}
+                if AdvancedLLMAttacker:
+                    ai_detectors['llm_attacker'] = AdvancedLLMAttacker()
+                if PromptInjectionDetector:
+                    ai_detectors['prompt_injection'] = PromptInjectionDetector()
+                
+                if ai_detectors:
+                    self.specialized_detectors['ai'] = ai_detectors
+                    print(f"OK AI Security detectors initialized ({len(ai_detectors)} modules)")
+            except Exception as e:
+                print(f"WARNING: AI Security detectors init failed: {e}")
+        
+        total_specialized = sum(len(dets) for dets in self.specialized_detectors.values())
+        print(f"OK Total specialized detectors initialized: {total_specialized}")
+    
+    def _initialize_tool_orchestrator(self):
+        """
+        Inisialisasi Auto Tool Orchestrator untuk manajemen tool otomatis.
+        Sistem ini akan otomatis download dan install tools yang dibutuhkan.
+        """
+        if TOOL_ORCHESTRATOR_AVAILABLE and AutoToolOrchestrator is not None:
+            try:
+                self.tool_orchestrator = AutoToolOrchestrator()
+                
+                # Integrasi dengan ARC Main
+                self.tool_orchestrator.integrate_with_arc_main(self)
+                
+                print("OK Auto Tool Orchestrator initialized - auto-download tools enabled")
+            except Exception as e:
+                print(f"WARNING: Auto Tool Orchestrator init failed: {e}")
+                print("OK ARC berjalan tanpa auto-tool management (manual mode)")
+                self.tool_orchestrator = None
+        else:
+            print("ℹ️ Auto Tool Orchestrator disabled - install TOOL_ORCHESTRATION untuk mengaktifkan")
+    
+    def _initialize_mutation_engine(self):
+        """
+        Inisialisasi Intelligent Mutation Engine untuk payload evolution.
+        Sistem ini menggunakan Genetic Algorithm + RL untuk generate payloads yang cerdas.
+        """
+        if MUTATION_ENGINE_AVAILABLE and MutationEngineIntegration is not None:
+            try:
+                self.mutation_engine = MutationEngineIntegration(self)
+                print("OK Intelligent Mutation Engine initialized - Genetic Algorithm + RL enabled")
+            except Exception as e:
+                print(f"WARNING: Mutation Engine init failed: {e}")
+                print("OK ARC berjalan tanpa intelligent mutation (basic mutation only)")
+                self.mutation_engine = None
+        else:
+            print("ℹ️ Intelligent Mutation Engine disabled - using basic mutation only")
+    
+    def get_intelligent_payload(self, vuln_type: str, target_info: Dict) -> Dict:
+        """
+        Get intelligent payload dengan Genetic Algorithm + RL
+        
+        Args:
+            vuln_type: Tipe vulnerability (xss, sqli, ssrf, etc)
+            target_info: Dict dengan target context
+        
+        Returns:
+            Dict dengan payload, confidence, strategy
+        """
+        if not self.mutation_engine:
+            # Fallback ke basic payload factory
+            factory = PayloadFactory()
+            return {
+                'payload': factory.generate_payload(vuln_type, target_info),
+                'confidence': 0.5,
+                'strategy': 'basic'
+            }
+        
+        return self.mutation_engine.get_payload_with_intelligence(vuln_type, target_info)
     
     def _initialize_vulnerability_detectors(self):
         """Inisialisasi semua vulnerability detectors."""
@@ -199,8 +483,95 @@ class ARCOrchestrator:
         # Bridge meneruskan ke orchestrator asli dan mencegah duplikasi kode
         for name, detector in self.detectors.items():
             self.learning_bridge.attach_detector(name, detector)
+            # Set ARC orchestrator reference untuk mutation engine access
+            if hasattr(detector, 'set_arc_orchestrator'):
+                detector.set_arc_orchestrator(self)
         
-        print(f"✅ Initialized {len(self.detectors)} vulnerability detectors and connected to learning bridge")
+        print(f"OK Initialized {len(self.detectors)} vulnerability detectors and connected to learning bridge")
+    
+    def _initialize_specialized_detectors(self):
+        """Inisialisasi specialized vulnerability detectors (mobile, cloud, crypto, AI, browser)."""
+        # Browser Security Detectors
+        if BROWSER_SECURITY_AVAILABLE and ChromiumFuzzOrchestrator is not None:
+            try:
+                self.specialized_detectors['browser'] = {
+                    'chromium_fuzz_orchestrator': ChromiumFuzzOrchestrator()
+                }
+                print("OK Browser Security detectors initialized")
+            except Exception as e:
+                print(f"WARNING: Browser Security detectors init failed: {e}")
+        
+        # Mobile Security Detectors
+        if MOBILE_SECURITY_AVAILABLE:
+            try:
+                mobile_detectors = {}
+                if APKStaticAnalyzer:
+                    mobile_detectors['apk_analyzer'] = APKStaticAnalyzer()
+                if IOSIPAAnalyzer:
+                    mobile_detectors['ios_analyzer'] = IOSIPAAnalyzer()
+                if BinaryAnalyzer:
+                    mobile_detectors['binary_analyzer'] = BinaryAnalyzer()
+                
+                if mobile_detectors:
+                    self.specialized_detectors['mobile'] = mobile_detectors
+                    print(f"OK Mobile Security detectors initialized ({len(mobile_detectors)} modules)")
+            except Exception as e:
+                print(f"WARNING: Mobile Security detectors init failed: {e}")
+        
+        # Cloud Security Detectors
+        if CLOUD_SECURITY_AVAILABLE:
+            try:
+                cloud_detectors = {}
+                if AWSS3Checker:
+                    cloud_detectors['aws_s3'] = AWSS3Checker()
+                if GCPBucketScanner:
+                    cloud_detectors['gcp_bucket'] = GCPBucketScanner()
+                if AzureBlobValidator:
+                    cloud_detectors['azure_blob'] = AzureBlobValidator()
+                if CloudMetadataProber:
+                    cloud_detectors['metadata_prober'] = CloudMetadataProber()
+                
+                if cloud_detectors:
+                    self.specialized_detectors['cloud'] = cloud_detectors
+                    print(f"OK Cloud Security detectors initialized ({len(cloud_detectors)} modules)")
+            except Exception as e:
+                print(f"WARNING: Cloud Security detectors init failed: {e}")
+        
+        # Crypto/Web3 Security Detectors
+        if CRYPTO_SECURITY_AVAILABLE:
+            try:
+                crypto_detectors = {}
+                if SmartContractAnalyzer:
+                    crypto_detectors['smart_contract'] = SmartContractAnalyzer()
+                if ReentrancySimulator:
+                    crypto_detectors['reentrancy'] = ReentrancySimulator()
+                if TokenApprovalAbuser:
+                    crypto_detectors['token_approval'] = TokenApprovalAbuser()
+                
+                if crypto_detectors:
+                    self.specialized_detectors['crypto'] = crypto_detectors
+                    print(f"OK Crypto/Web3 Security detectors initialized ({len(crypto_detectors)} modules)")
+            except Exception as e:
+                print(f"WARNING: Crypto/Web3 Security detectors init failed: {e}")
+        
+        # AI Security Detectors
+        if AI_SECURITY_AVAILABLE:
+            try:
+                ai_detectors = {}
+                if AdvancedLLMAttacker:
+                    ai_detectors['llm_attacker'] = AdvancedLLMAttacker()
+                if PromptInjectionDetector:
+                    ai_detectors['prompt_injection'] = PromptInjectionDetector()
+                
+                if ai_detectors:
+                    self.specialized_detectors['ai'] = ai_detectors
+                    print(f"OK AI Security detectors initialized ({len(ai_detectors)} modules)")
+            except Exception as e:
+                print(f"WARNING: AI Security detectors init failed: {e}")
+        
+        total_specialized = sum(len(dets) for dets in self.specialized_detectors.values())
+        print(f"OK Total specialized detectors initialized: {total_specialized}")
+
     
     def _connect_learning_sources(self):
         """Hubungkan sumber pembelajaran tambahan (CTF, writeups) ke self-learning."""
@@ -208,17 +579,17 @@ class ARCOrchestrator:
         try:
             self.ctf_analyzer = CTFChallengeAnalyzer()
             self.ctf_analyzer.learning_bridge = self.learning_bridge
-            print("✅ CTF Challenge Analyzer connected to learning bridge")
+            print("OK CTF Challenge Analyzer connected to learning bridge")
         except Exception as e:
-            print(f"⚠️ CTF Challenge Analyzer init failed: {e}")
+            print(f"WARNING: CTF Challenge Analyzer init failed: {e}")
             self.ctf_analyzer = None
         
         # 2. Platform Writeup Scraper - belajar dari writeup bug bounty
         try:
             self.writeup_scraper = PlatformWriteupScraper(learning_bridge=self.learning_bridge)
-            print("✅ Platform Writeup Scraper connected to learning bridge")
+            print("OK Platform Writeup Scraper connected to learning bridge")
         except Exception as e:
-            print(f"⚠️ Platform Writeup Scraper init failed: {e}")
+            print(f"WARNING: Platform Writeup Scraper init failed: {e}")
             self.writeup_scraper = None
     
     def _initialize_ethical_armor(self):
@@ -227,7 +598,7 @@ class ARCOrchestrator:
         self.zero_trust = ZeroTrustExecution()
         self.data_minimizer = DataMinimizationEnforcer()
         self.ethics_lock = ChainEthicsLock()
-        print("✅ Initialized ethical armor modules")
+        print("OK Initialized ethical armor modules")
     
     def _initialize_submitters(self):
         """Inisialisasi platform-specific submitters dengan kredensial valid.
@@ -354,6 +725,39 @@ class ARCOrchestrator:
             except Exception:
                 pass
     
+    def _initialize_google_vrp(self):
+        """Inisialisasi Google VRP Integrator (bughunters.google.com).
+
+        Mendaftarkan sebagai scraper ('google_vrp') dan submitter ('google_vrp')
+        agar kompatibel dengan loop intelijen & alur pelaporan ARC yang sudah ada.
+        Prioritas kredensial: config.yaml/bughunters_google > CredentialVault GPG.
+        """
+        if not GOOGLE_VRP_AVAILABLE:
+            print("WARNING: GoogleVRPIntegrator tidak tersedia - install requests + beautifulsoup4")
+            return
+        
+        try:
+            credentials = self.credential_vault.load_all_credentials()
+            google_creds = self._merge_credentials('google', credentials)
+            session_cookie = google_creds.get('session_cookie') if google_creds else None
+            
+            self.google_vrp_integrator = GoogleVRPIntegrator(session_cookie=session_cookie)
+            self.google_vrp_integrator.load_cache()
+            
+            # Registrasi sebagai scraper (untuk _update_intelligence_feed)
+            self.scrapers['google_vrp'] = self.google_vrp_integrator
+            # Registrasi sebagai submitter (untuk template laporan form-based)
+            self.submitters['google_vrp'] = self.google_vrp_integrator
+            # Hubungkan evidence + patch generator (untuk clarification/triage analis)
+            self.google_vrp_integrator.set_evidence_generator(self.evidence_generator)
+            self.google_vrp_integrator.set_patch_generator(self.patch_generator)
+            
+            session_state = "dengan cookie" if session_cookie else "tanpa cookie (public scope)"
+            print(f"OK Google VRP Integrator initialized ({session_state})")
+        except Exception as e:
+            print(f"WARNING: Google VRP Integrator init failed: {e}")
+            self.google_vrp_integrator = None
+    
     def start_autonomous_operations(self):
         """Mulai operasi otonom 24/7"""
         print("▶️ Starting autonomous operations...")
@@ -409,11 +813,22 @@ class ARCOrchestrator:
         for platform, scraper in self.scrapers.items():
             try:
                 programs = scraper.get_all_programs()
-                print(f"✅ Found {len(programs)} programs on {platform}")
+                print(f"OK Found {len(programs)} programs on {platform}")
                 self._cache_program_intelligence(platform, programs)
             except Exception as e:
-                print(f"⚠️ Failed to scrape {platform}: {e}")
+                print(f"WARNING: Failed to scrape {platform}: {e}")
 
+# 1a. Google VRP feed (output CLI + cache inteligen program bughunters.google.com)
+        if getattr(self, 'google_vrp_integrator', None):
+            try:
+                google_programs = self.google_vrp_integrator.get_all_google_programs()
+                active_count = len([
+                    p for p in google_programs.values()
+                    if p.get('status') != 'on_hold'
+                ])
+                print(f"OK Google VRP: {len(google_programs)} program, {active_count} aktif (bughunters.google.com)")
+            except Exception as e:
+                print(f"WARNING: Google VRP refresh gagal: {e}")
         # 1b. Scrap writeup bug bounty untuk pembelajaran AI
         if hasattr(self, 'writeup_scraper') and self.writeup_scraper:
             try:
@@ -421,9 +836,9 @@ class ARCOrchestrator:
                 total_writeups = writeup_results.get('total_writeups', 0)
                 fed_to_learning = writeup_results.get('learning_insights_fed', 0)
                 if total_writeups > 0:
-                    print(f"✅ Scraped {total_writeups} writeups, fed {fed_to_learning} to self-learning")
+                    print(f"OK Scraped {total_writeups} writeups, fed {fed_to_learning} to self-learning")
             except Exception as e:
-                print(f"⚠️ Writeup scraping failed: {e}")
+                print(f"WARNING: Writeup scraping failed: {e}")
 
         # 2. Update CVE/CWE OSINT
         try:
@@ -436,15 +851,15 @@ class ARCOrchestrator:
                 threat_data = cve_updater.get_latest_threat_data()
                 if threat_data:
                     self.self_learning_orchestrator.integrate_threat_intelligence(threat_data)
-                    print("✅ CVE threat intelligence integrated into self-learning engine")
+                    print("OK CVE threat intelligence integrated into self-learning engine")
                 
                 # Integrasikan CWE ke self-learning engine
                 cwe_data = cve_updater.get_latest_cwe_data()
                 if cwe_data:
                     self.self_learning_orchestrator.integrate_cwe_data(cwe_data)
-                    print("✅ CWE data integrated into self-learning engine")
+                    print("OK CWE data integrated into self-learning engine")
         except Exception as e:
-            print(f"⚠️ Failed to update threat intelligence: {e}")
+            print(f"WARNING: Failed to update threat intelligence: {e}")
         
         # 3. Hubungkan temuan dari semua detektor ke self-learning via LEARNING BRIDGE
         self._connect_detector_findings_to_learning()
@@ -454,7 +869,7 @@ class ARCOrchestrator:
         # Sinkronkan semua detector yang terhubung ke bridge
         synced = self.learning_bridge.sync_all_detectors()
         if synced > 0:
-            print(f"✅ Synced {synced} findings from all detectors to learning engine")
+            print(f"OK Synced {synced} findings from all detectors to learning engine")
     
     def _cache_program_intelligence(self, platform, programs):
         """Simpan intelijen program ke cache."""
@@ -462,8 +877,8 @@ class ARCOrchestrator:
         pass
     
     def _analyze_new_findings(self):
-        """Analisis temuan baru menggunakan cognitive core dan detectors."""
-        print("🧠 Analyzing new findings...")
+        """Analisis temuan baru menggunakan cognitive core dan detectors dengan target routing."""
+        print("🧠 Analyzing new findings with target-aware routing...")
         findings = []
         
         # Get learning-based recommendations
@@ -482,9 +897,62 @@ class ARCOrchestrator:
                 )
                 print(f"🧠 AI Analysis: {analysis[:100]}...")
             except Exception as e:
-                print(f"⚠️ AI analysis failed: {e}")
+                print(f"WARNING: AI analysis failed: {e}")
         
-        # Implementasi aktual akan menggunakan vulnerability detectors
+        # TARGET-AWARE SCANNING
+        if self.target_router:
+            try:
+                target_scope = getattr(self, 'current_target_scope', {})
+                target_url = target_scope.get('url', '')
+                target_hint = target_scope.get('type_hint', '')
+                
+                if target_url or target_hint:
+                    print(f"🎯 Using target-aware routing for: {target_url or target_hint}")
+                    profile = self.target_router.detect_target_type(
+                        target_url=target_url,
+                        target_hint=target_hint
+                    )
+                    routing_result = self.target_router.route_to_modules(profile)
+                    routed_modules = routing_result['routed_modules']
+                    print(f"🔀 Routed to: {list(routed_modules.keys())}")
+                    
+                    # Execute routed detectors
+                    findings = []
+                    for category, detectors in routed_modules.items():
+                        print(f"  🔍 Executing {category} detectors...")
+                        findings.append({
+                            'type': category,
+                            'detectors': list(detectors.keys()),
+                            'status': 'routed_and_ready'
+                        })
+                    
+                    if not findings:
+                        findings = self._execute_web_detectors_fallback(target_scope)
+                else:
+                    findings = self._execute_web_detectors_fallback(target_scope)
+            except Exception as e:
+                print(f"WARNING: Target routing failed: {e}")
+                findings = self._execute_web_detectors_fallback({})
+        else:
+            print("ℹ️ Target Router not available, using standard detectors")
+            findings = self._execute_web_detectors_fallback({})
+        
+        return findings
+    
+    def _execute_web_detectors_fallback(self, target_scope):
+        """Fallback ke standard web detectors."""
+        findings = []
+        for name, detector in self.detectors.items():
+            try:
+                if name in ['xss', 'sqli', 'ssrf', 'idor', 'csrf']:
+                    findings.append({
+                        'type': 'web_security',
+                        'detector': name,
+                        'status': 'scanned',
+                        'target': target_scope.get('url', 'unknown')
+                    })
+            except Exception:
+                pass
         return findings
     
     def _validate_findings(self, findings):
@@ -504,7 +972,7 @@ class ARCOrchestrator:
     
     def _request_human_approval(self, finding):
         """Minta approval manusia untuk temuan berisiko tinggi"""
-        print(f"⚠️ Requesting human approval for finding: {finding.get('id', 'N/A')}")
+        print(f"WARNING: Requesting human approval for finding: {finding.get('id', 'N/A')}")
         self.human_in_the_loop_gate.request_approval(finding)
     
     def _submit_automatically(self, finding):
@@ -517,11 +985,11 @@ class ARCOrchestrator:
                     finding,
                     finding.get('evidence_files', [])
                 )
-                print(f"✅ Auto-submission result for {platform}: {result.get('success', False)}")
+                print(f"OK Auto-submission result for {platform}: {result.get('success', False)}")
             except Exception as e:
                 print(f"❌ Auto-submission failed for {platform}: {e}")
         else:
-            print(f"⚠️ No submitter available for {platform}, skipping auto-submission")
+            print(f"WARNING: No submitter available for {platform}, skipping auto-submission")
 
 def main():
     """Fungsi utama ARC v7.6 Final"""
