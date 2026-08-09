@@ -40,6 +40,11 @@ credentials:
     
     immunefi_bounty:
       session_cookie: "sessionid=real_value_from_browser; csrftoken=real_value"
+    
+    # bughunters.google.com (opsional - untuk scraping scope yang butuh login)
+    # Tanpa cookie, integrator tetap jalan untuk scope publik (13 program Google VRP)
+    bughunters_google:
+      session_cookie: "SID=real_value_from_browser; HSID=real_value"
   
   # ==========================================================
   # CTF PLATFORMS

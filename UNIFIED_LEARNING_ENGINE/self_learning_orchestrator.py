@@ -11,7 +11,7 @@ from datetime import datetime
 
 from .experience_collector import ExperienceCollector, ExperienceType, OutcomeType
 from .feedback_loop import FeedbackLoop
-from .model_trainer import ModelTrainer
+from .unified_model_trainer import UnifiedModelTrainer
 from .dynamic_knowledge_base import DynamicKnowledgeBase
 
 
@@ -28,7 +28,7 @@ class SelfLearningOrchestrator:
         # Inisialisasi komponen
         self.experience_collector = ExperienceCollector()
         self.feedback_loop = FeedbackLoop()
-        self.model_trainer = ModelTrainer()
+        self.model_trainer = UnifiedModelTrainer()
         self.knowledge_base = DynamicKnowledgeBase()
         
         # State tracking

@@ -2,6 +2,14 @@ import time
 import json
 from datetime import datetime, timedelta
 
+# Architecture Fingerprinter - OPSIONAL
+try:
+    from ENTERPRISE_ATTACK_SURFACE.architecture_fingerprinter import ArchitectureFingerprinter
+    FINGERPRINTER_AVAILABLE = True
+except ImportError:
+    ArchitectureFingerprinter = None
+    FINGERPRINTER_AVAILABLE = False
+
 class AutonomousMissionPlanner:
     """
     24/7 ops: recon → exploit → report → learn cycle.
@@ -15,6 +23,15 @@ class AutonomousMissionPlanner:
             'report': self._execute_report_phase,
             'learn': self._execute_learn_phase
         }
+        
+        # Initialize Architecture Fingerprinter
+        self.fingerprinter = None
+        if FINGERPRINTER_AVAILABLE:
+            try:
+                self.fingerprinter = ArchitectureFingerprinter()
+                print("✅ Architecture Fingerprinter initialized in Mission Planner")
+            except Exception as e:
+                print(f"⚠️ Architecture Fingerprinter init failed: {e}")
         
         self.mission_templates = {
             'bug_bounty': {
@@ -171,7 +188,68 @@ class AutonomousMissionPlanner:
         return [{'type': 'port', 'value': 80}, {'type': 'port', 'value': 443}]
     
     def _perform_tech_fingerprint(self, target_scope: dict) -> List[dict]:
-        return [{'type': 'technology', 'value': 'nginx'}, {'type': 'technology', 'value': 'react'}]
+        """Perform technology fingerprinting using ArchitectureFingerprinter."""
+        findings = []
+        
+        # Gunakan ArchitectureFingerprinter jika tersedia
+        if self.fingerprinter:
+            try:
+                target_url = target_scope.get('url', '')
+                if target_url:
+                    print(f"🔍 Performing architecture fingerprinting on: {target_url}")
+                    fingerprint = self.fingerprinter.fingerprint_target(target_url)
+                    
+                    # Convert fingerprint results to findings format
+                    if fingerprint.get('cloud_providers'):
+                        for provider in fingerprint['cloud_providers']:
+                            findings.append({
+                                'type': 'cloud_provider',
+                                'value': provider,
+                                'confidence': 'high'
+                            })
+                    
+                    if fingerprint.get('frameworks'):
+                        for framework in fingerprint['frameworks']:
+                            findings.append({
+                                'type': 'framework',
+                                'value': framework,
+                                'confidence': 'high'
+                            })
+                    
+                    if fingerprint.get('auth_flows'):
+                        for auth in fingerprint['auth_flows']:
+                            findings.append({
+                                'type': 'auth_flow',
+                                'value': auth,
+                                'confidence': 'medium'
+                            })
+                    
+                    if fingerprint.get('tech_stack'):
+                        for tech in fingerprint['tech_stack']:
+                            findings.append({
+                                'type': 'technology',
+                                'value': tech,
+                                'confidence': 'high'
+                            })
+                    
+                    print(f"✅ Fingerprinted: {len(findings)} technologies detected")
+                else:
+                    print("⚠️ No URL provided for fingerprinting")
+            except Exception as e:
+                print(f"⚠️ Architecture fingerprinting failed: {e}")
+                # Fallback to placeholder data
+                findings = [
+                    {'type': 'technology', 'value': 'nginx', 'confidence': 'low'},
+                    {'type': 'technology', 'value': 'react', 'confidence': 'low'}
+                ]
+        else:
+            # Fallback jika fingerprinter tidak tersedia
+            findings = [
+                {'type': 'technology', 'value': 'nginx', 'confidence': 'low'},
+                {'type': 'technology', 'value': 'react', 'confidence': 'low'}
+            ]
+        
+        return findings
     
     def _perform_vuln_scan(self, target_scope: dict) -> List[dict]:
         return [{'type': 'vulnerability', 'value': 'XSS'}, {'type': 'vulnerability', 'value': 'SQLi'}]

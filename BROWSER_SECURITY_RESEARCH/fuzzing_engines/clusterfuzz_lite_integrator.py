@@ -1,5 +1,6 @@
 import subprocess
 import os
+import sys
 
 class ClusterFuzzLiteIntegrator:
     """
@@ -17,7 +18,12 @@ class ClusterFuzzLiteIntegrator:
         try:
             import clusterfuzzlite
         except ImportError:
-            subprocess.run(['pip', 'install', 'clusterfuzz-lite'], check=True)
+            # NOTE: clusterfuzz-lite tidak tersedia di PyPI (404), jadi install
+            # langsung dari repository resmi Google via git + pip.
+            subprocess.run([
+                sys.executable, '-m', 'pip', 'install',
+                'git+https://github.com/google/clusterfuzzlite.git#subdirectory=projects/tradefuzz'
+            ], check=True)
     
     def setup_fuzzing_target(self, target_binary: str, fuzz_target: str):
         """Siapkan target fuzzing untuk ClusterFuzz Lite."""
