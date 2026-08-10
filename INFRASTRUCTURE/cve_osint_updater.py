@@ -34,7 +34,11 @@ class CVEOSINTUpdater:
         
         self.nvd_api_key = nvd_api_key or os.environ.get('NVD_API_KEY') or config_nvd_key
         self.nvd_base_url = "https://services.nvd.nist.gov/rest/json/cves/2.0"
-        self.cwe_xml_url = "https://cwe.mitre.org/data/xml/cwec_v4.12.xml.zip"
+        # Sumber CWE: pakai "latest" dinamis dulu, fallback ke versi hardcoded yang sudah terbukti ada
+        self.cwe_xml_url = "https://cwe.mitre.org/data/xml/cwec_latest.xml.zip"
+        self.cwe_xml_url_fallback = "https://cwe.mitre.org/data/xml/cwec_v4.12.xml.zip"
+        # CWE feed dirilis bulanan -> cache JSON dipakai ulang selama masih dalam masa TTL
+        self.cwe_cache_ttl_days = 30
     
     def _get_proxies(self) -> Optional[Dict[str, str]]:
         """Gunakan Tor proxy hanya jika tersedia, fallback ke direct connection."""
@@ -60,20 +64,31 @@ class CVEOSINTUpdater:
             'success': False
         }
         
+        # NVD dan CWE ditangani INDEPENDEN supaya satu gagal
+        # (mis. rate-limit NVD tanpa API key) tidak menggagalkan yang lain.
+        nvd_file = None
+        nvd_success, cwe_success = False, False
+        
+        # 1. NVD (sumber utama)
         try:
-            # 1. NVD (sumber utama)
             nvd_file = self.update_nvd_data(days_back)
             results['nvd_data'] = nvd_file
-            
-            # 2. MITRE CWE (referensi bulanan)
+            nvd_success = True
+        except Exception as e:
+            results['nvd_error'] = str(e)
+            print(f"⚠️ NVD update failed (tetap lanjut ke CWE): {e}")
+        
+        # 2. MITRE CWE (referensi bulanan) - auto-download zip bila belum ada
+        try:
             cwe_file = self.update_cwe_feed()
             results['cwe_data'] = cwe_file
-            
-            results['success'] = True
-            results['total_threats'] = self._count_total_threats([nvd_file])
-        
+            cwe_success = True
         except Exception as e:
-            results['error'] = f'Threat update failed: {str(e)}'
+            results['cwe_error'] = str(e)
+            print(f"⚠️ CWE update failed: {e}")
+        
+        results['success'] = nvd_success or cwe_success
+        results['total_threats'] = self._count_total_threats([nvd_file] if nvd_file else [])
         
         return results
     
@@ -110,66 +125,139 @@ class CVEOSINTUpdater:
         except Exception as e:
             raise Exception(f'NVD data update failed: {str(e)}')
     
-    def update_cwe_feed(self) -> str:
+    def update_cwe_feed(self, force: bool = False) -> str:
         """
-        Perbarui feed CWE dari MITRE.
+        Update feed CWE dari MITRE.
+        - Auto-download ZIP -> extract XML -> konversi ke JSON.
+        - Jika ada cache JSON yang masih segar (< cwe_cache_ttl_days) dipakai ulang
+          (CWE feed dirilis bulanan, hindari download ulang ~30MB tiap run).
+        - force=True memaksa download ulang.
+        Mengembalikan path file JSON, atau raise bila semua sumber gagal & tak ada cache.
         """
+        # 1) Pakai cache segar bila ada
+        cached = self._get_fresh_cwe_cache()
+        if cached and not force:
+            print(f"♻️ CWE feed memakai cache segar: {cached}")
+            return cached
+
+        # 2) Coba unduh dari daftar URL (utama 'latest' + fallback versi terverifikasi)
+        urls = [self.cwe_xml_url, self.cwe_xml_url_fallback]
+        last_error = None
+        for url in urls:
+            try:
+                return self._download_cwe_from(url)
+            except Exception as e:
+                last_error = e
+                print(f"⚠️ CWE download gagal dari {url}: {e}")
+
+        # 3) Semua sumber gagal -> pakai cache stale terakhir jika masih ada
+        stale = self._get_latest_cwe_json_path()
+        if stale:
+            print(f"⚠️ Semua sumber CWE gagal, memakai data cache lama: {stale}")
+            return stale
+
+        raise Exception(f"CWE feed update failed - semua sumber gagal: {last_error}")
+
+    def _download_cwe_from(self, url: str) -> str:
+        """Unduh ZIP CWE dari satu URL, extract XML secara aman, konversi ke JSON."""
+        print(f"⬇️ Downloading CWE feed: {url}")
+        response = requests.get(
+            url,
+            proxies=self._get_proxies(),
+            headers=self._get_headers(),
+            timeout=120
+        )
+        if response.status_code != 200:
+            raise Exception(f'CWE download failed: {response.status_code}')
+
+        # Validasi magic bytes ZIP ("PK") agar file rusak/halaman HTML ikut diekstrak
+        if response.content[:2] != b'PK':
+            raise Exception('Respon bukan file ZIP (magic bytes tidak valid)')
+
+        timestamp = int(time.time())
+        zip_path = os.path.join(self.data_dir, f"cwec_{timestamp}.zip")
+        with open(zip_path, 'wb') as f:
+            f.write(response.content)
+
+        # Extract file XML secara aman (cegah Zip Slip / path traversal)
+        xml_file = None
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            for member in zip_ref.namelist():
+                if (member.lower().endswith('.xml') and not member.startswith('/')
+                        and '..' not in member):
+                    safe_name = os.path.basename(member)
+                    if not safe_name:
+                        continue
+                    xml_file = os.path.join(self.data_dir, safe_name)
+                    with zip_ref.open(member) as src, open(xml_file, 'wb') as dst:
+                        dst.write(src.read())
+                    break
+
+        os.remove(zip_path)  # bersihkan zip setelah dipakai
+
+        if not xml_file or not os.path.exists(xml_file):
+            raise Exception('File XML tidak ditemukan di dalam ZIP CWE')
+
+        json_file = os.path.join(self.data_dir, f"cwe_{timestamp}.json")
+        self._convert_cwe_xml_to_json(xml_file, json_file)
+        return json_file
+
+    def _get_fresh_cwe_cache(self) -> Optional[str]:
+        """Path JSON CWE terbaru jika usianya masih dalam masa TTL, else None."""
+        path = self._get_latest_cwe_json_path()
+        if not path:
+            return None
+        age_days = (time.time() - os.path.getmtime(path)) / 86400.0
+        if age_days <= self.cwe_cache_ttl_days:
+            return path
+        return None
+
+    def _get_latest_cwe_json_path(self) -> Optional[str]:
+        """Path file JSON CWE paling baru (tanpa memandang umur), else None."""
         try:
-            response = requests.get(
-                self.cwe_xml_url,
-                proxies=self._get_proxies(),
-                headers=self._get_headers(),
-                timeout=60
-            )
-            
-            if response.status_code == 200:
-                zip_path = os.path.join(self.data_dir, "cwec_v4.12.xml.zip")
-                with open(zip_path, 'wb') as f:
-                    f.write(response.content)
-                
-                xml_file = os.path.join(self.data_dir, "cwec_v4.12.xml")
-                with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                    zip_ref.extractall(self.data_dir)
-                
-                json_file = os.path.join(self.data_dir, f"cwe_{int(time.time())}.json")
-                self._convert_cwe_xml_to_json(xml_file, json_file)
-                
-                return json_file
-            else:
-                raise Exception(f'CWE download failed: {response.status_code}')
-        
-        except Exception as e:
-            raise Exception(f'CWE feed update failed: {str(e)}')
+            cwe_files = [f for f in os.listdir(self.data_dir)
+                         if f.startswith('cwe_') and f.endswith('.json')]
+        except OSError:
+            return None
+        if not cwe_files:
+            return None
+        latest_file = max(
+            cwe_files,
+            key=lambda f: os.path.getmtime(os.path.join(self.data_dir, f))
+        )
+        return os.path.join(self.data_dir, latest_file)
     
     def _convert_cwe_xml_to_json(self, xml_file: str, json_file: str):
-        """Konversi file XML CWE ke format JSON."""
+        """Konversi file XML CWE ke format JSON (namespace-agnostic)."""
+        cwe_list = []
+        error_msg = None
         try:
             tree = ET.parse(xml_file)
             root = tree.getroot()
-            namespace = {'cwe': 'http://cwe.mitre.org/cwe-6'}
-            
-            cwe_list = []
-            for weakness in root.findall('.//cwe:Weakness', namespace):
+            # Wildcard '{*}Weakness' bekerja untuk semua versi XML CWE
+            # ({http://cwe.mitre.org/cwe-6} ataupun namespace https sekalipun)
+            for weakness in root.findall('.//{*}Weakness'):
                 cwe_id = weakness.get('ID')
                 name = weakness.get('Name')
-                description_elem = weakness.find('.//cwe:Description', namespace)
-                description = description_elem.text if description_elem is not None else ""
-                
+                description = ""
+                desc_elem = weakness.find('{*}Description')
+                if desc_elem is not None and desc_elem.text:
+                    description = desc_elem.text.strip()
                 cwe_list.append({
                     'id': f"CWE-{cwe_id}",
                     'name': name,
-                    'description': description
+                    'description': description[:1000]
                 })
-            
-            with open(json_file, 'w') as f:
-                json.dump({'weaknesses': cwe_list}, f, indent=2)
-                
+            if not cwe_list:
+                error_msg = 'Tidak ada entri Weakness ditemukan (format XML berubah?)'
         except Exception as e:
-            with open(json_file, 'w') as f:
-                json.dump({
-                    'error': f'CWE XML to JSON conversion failed: {str(e)}',
-                    'weaknesses': []
-                }, f, indent=2)
+            error_msg = str(e)
+
+        data = {'weaknesses': cwe_list}
+        if error_msg:
+            data['error'] = error_msg
+        with open(json_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
     
     def _count_total_threats(self, file_paths: list) -> int:
         """Hitung total ancaman dari file-file yang diberikan."""
@@ -195,10 +283,40 @@ class CVEOSINTUpdater:
         return None
     
     def get_latest_cwe_data(self) -> Optional[Dict[str, Any]]:
-        """Dapatkan data CWE terbaru yang tersedia."""
-        cwe_files = [f for f in os.listdir(self.data_dir) if f.startswith('cwe_')]
-        if cwe_files:
-            latest_file = max(cwe_files, key=lambda x: int(x.split('_')[-1].replace('.json', '')))
-            with open(os.path.join(self.data_dir, latest_file), 'r') as f:
+        """
+        Ambil data CWE terbaru yang tersedia.
+        LAZY AUTO-DOWNLOAD: jika belum ada data JSON, otomatis download CWE.
+        Jika offline/gagal total, fallback ke XML lama yang tersisa di data_dir.
+        """
+        # 1) Coba file JSON yang sudah ada
+        path = self._get_latest_cwe_json_path()
+        if path:
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception:
+                pass
+
+        # 2) Belum ada -> auto-download sendiri (agar ARC tidak perlu run ulang)
+        try:
+            path = self.update_cwe_feed(force=True)
+            with open(path, 'r', encoding='utf-8') as f:
                 return json.load(f)
+        except Exception as e:
+            print(f"⚠️ CWE auto-download gagal: {e}")
+
+        # 3) Fallback terakhir: konversi XML lama yang mungkin masih ada di data_dir
+        try:
+            for xf in sorted(os.listdir(self.data_dir), reverse=True):
+                if xf.lower().endswith('.xml'):
+                    xml_file = os.path.join(self.data_dir, xf)
+                    json_file = os.path.join(self.data_dir, f"cwe_{int(time.time())}.json")
+                    self._convert_cwe_xml_to_json(xml_file, json_file)
+                    with open(json_file, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                    if data.get('weaknesses'):
+                        return data
+        except Exception:
+            pass
+
         return None

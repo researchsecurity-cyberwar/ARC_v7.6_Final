@@ -91,6 +91,23 @@ python COGNITIVE_CORE/sovereign_reasoner.py --interactive
 python 🕵️ DUPLICATE_INTELLIGENCE/report_scraper.py --platform immunefi
 python 🏆 CTF_INTELLIGENCE/ctf_challenge_ingestor.py --source hackthebox
 
+# ─── AI MODEL (SovereignReasoner via llama.cpp) ─────────────────────
+# 1) Install llama-cpp-python (opsional, graceful fallback jika tidak ada)
+#    pip install llama-cpp-python
+# 2) Tempatkan model .gguf di ~/.arc/models/ ATAU tentukan path-nya:
+#    export ARC_LLM_MODEL_PATH=/path/ke/model.gguf
+#    (juga bisa lewat ~/.arc/config.yaml -> llm.model_path)
+# 3) Test model kamu:
+#    python COGNITIVE_CORE/sovereign_reasoner.py --status
+#    python COGNITIVE_CORE/sovereign_reasoner.py --interactive
+#    python COGNITIVE_CORE/sovereign_reasoner.py --analyze --report
+#
+# Env var opsional:
+#    ARC_LLM_N_CTX=4096        # panjang konteks (token)
+#    ARC_LLM_N_THREADS=8       # jumlah CPU thread (default: auto-detect)
+#    ARC_LLM_GPU_LAYERS=35     # 0 = CPU only; >0 = offload layer ke GPU
+#    ARC_LLM_TEMPERATURE=0.7   # kreativitas sampling
+#    ARC_LLM_MODEL_DIRS=/dir1:/dir2   # folder tambahan utk auto-discover .gguf
 # ~/.arc/config.yaml
 credentials:
   # Platform dengan API token permanen (tidak perlu update manual - berjalan selamanya)

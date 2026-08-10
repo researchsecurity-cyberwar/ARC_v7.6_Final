@@ -180,7 +180,8 @@ class LocalDeployer:
                 'requests', 'beautifulsoup4', 'lxml', 'playwright',
                 'llama-cpp-python', 'PyYAML', 'watchdog', 'stem',
                 'networkx', 'cryptography', 'PyPDF2', 'pdfplumber',
-                'python-docx', 'openpyxl', 'web3', 'slither-analyzer'
+                'python-docx', 'openpyxl', 'web3', 'slither-analyzer',
+                'scikit-learn', 'xgboost', 'pandas'
             ]
             subprocess.run([pip_path, 'install'] + requirements, check=True, timeout=600)
             
