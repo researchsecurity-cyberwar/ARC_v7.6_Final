@@ -172,10 +172,21 @@ except ImportError:
 
 # Auto Tool Orchestrator - OPSIONAL (akan diinstall otomatis jika dibutuhkan)
 try:
-    from TOOL_ORCHESTRATION.INTELLIGENT_TOOL_MANAGER import AutoToolOrchestrator, ensure_security_tools
+    from TOOL_ORCHESTRATION.INTELLIGENT_TOOL_MANAGER import (
+        AutoToolOrchestrator,
+        ensure_security_tools,
+        IntelligentToolCommander,
+        create_smart_tool_commander,
+        AutonomousSessionEngine,
+        create_autonomous_engine,
+    )
     TOOL_ORCHESTRATOR_AVAILABLE = True
 except ImportError:
     AutoToolOrchestrator = None
+    IntelligentToolCommander = None
+    create_smart_tool_commander = None
+    AutonomousSessionEngine = None
+    create_autonomous_engine = None
     TOOL_ORCHESTRATOR_AVAILABLE = False
     print("WARNING: AutoToolOrchestrator tidak tersedia - tool management manual")
 
@@ -208,6 +219,15 @@ class ARCOrchestrator:
         self.human_in_the_loop_gate = HumanInTheLoopGate(
             telegram_notifier=self.telegram_notifier
         )
+        try:
+            from TOOL_ORCHESTRATION.INTELLIGENT_TOOL_MANAGER.session_approval_controller import SessionApprovalController
+            self.session_approval_controller = SessionApprovalController(
+                telegram=self.telegram_notifier,
+                auto_start_poller=True,
+            )
+        except Exception as e:
+            print(f"WARNING: Approval controller init failed: {e}")
+            self.session_approval_controller = None
         
         # 3. Inisialisasi session manager
         self.session_manager = PlatformSessionManager(self.credential_vault)
@@ -275,6 +295,8 @@ class ARCOrchestrator:
         
         # 13. Inisialisasi Auto Tool Orchestrator (ADA PTNG DIKIT - WAJIB!)
         self.tool_orchestrator = None
+        self.smart_commander = None  # IntelligentToolCommander (dipasang di _initialize_tool_orchestrator)
+        self.session_engine = None   # AutonomousSessionEngine (dipasang di _initialize_tool_orchestrator)
         self._initialize_tool_orchestrator()
         
         # 13b. Inisialisasi Intelligent Mutation Engine (Opsional - Enhanced)
@@ -402,15 +424,19 @@ class ARCOrchestrator:
     def _initialize_tool_orchestrator(self):
         """
         Inisialisasi Auto Tool Orchestrator untuk manajemen tool otomatis.
-        Sistem ini akan otomatis download dan install tools yang dibutuhkan.
+        Sistem ini akan otomatis download/install tools + MEMAKAINYA secara
+        mandiri melalui IntelligentToolCommander (self-learning CLI engine).
         """
+        self.tool_orchestrator = None
+        self.smart_commander = None
+
         if TOOL_ORCHESTRATOR_AVAILABLE and AutoToolOrchestrator is not None:
             try:
                 self.tool_orchestrator = AutoToolOrchestrator()
-                
+
                 # Integrasi dengan ARC Main
                 self.tool_orchestrator.integrate_with_arc_main(self)
-                
+
                 print("OK Auto Tool Orchestrator initialized - auto-download tools enabled")
             except Exception as e:
                 print(f"WARNING: Auto Tool Orchestrator init failed: {e}")
@@ -418,7 +444,84 @@ class ARCOrchestrator:
                 self.tool_orchestrator = None
         else:
             print("ℹ️ Auto Tool Orchestrator disabled - install TOOL_ORCHESTRATION untuk mengaktifkan")
-    
+
+        # IntelligentToolCommander: mesin belajar-memakai tool apa pun secara mandiri
+        if TOOL_ORCHESTRATOR_AVAILABLE and create_smart_tool_commander is not None:
+            try:
+                self.smart_commander = create_smart_tool_commander(
+                    orchestrator=self.tool_orchestrator
+                )
+                print("OK IntelligentToolCommander initialized - ARC dapat memakai tool CLI apa pun secara mandiri")
+            except Exception as e:
+                print(f"WARNING: IntelligentToolCommander init failed: {e}")
+                self.smart_commander = None
+        else:
+            print("ℹ️ IntelligentToolCommander disabled")
+
+        # AutonomousSessionEngine: install/update/eksekusi mandiri di terminal
+        self.session_engine = None
+        if TOOL_ORCHESTRATOR_AVAILABLE and AutonomousSessionEngine is not None:
+            try:
+                self.session_engine = AutonomousSessionEngine(
+                    orchestrator=self.tool_orchestrator,
+                    commander=self.smart_commander,
+                    approval_controller=getattr(self, 'session_approval_controller', None),
+                )
+                print(f"OK AutonomousSessionEngine initialized - {self.session_engine.env.get('is_kali', False) and 'Kali Linux' or self.session_engine.env.get('platform')} terminal")
+            except Exception as e:
+                print(f"WARNING: AutonomousSessionEngine init failed: {e}")
+                self.session_engine = None
+        else:
+            print("ℹ️ AutonomousSessionEngine disabled")
+
+    def smart_use_tool(self, tool_name: str, intent: str = 'generic',
+                       params: dict = None, subcommand: str = None) -> dict:
+        """
+        API publik ARC: gunakan tool CLI apa pun secara MANDIRI.
+        - Pelajari antarmuka tool (jika belum ada kache)
+        - Bangun command dengan flag yang benar berdasarkan intent & parameter
+        - Jalankan, self-heal bila gagal
+
+        Contoh:
+            arc.smart_use_tool('nuclei', 'web_scan',
+                               {'target': ['https://target.com'], 'severity': 'high'})
+        """
+        params = params or {}
+        if self.smart_commander is None:
+            return {'success': False,
+                    'error': 'IntelligentToolCommander tidak tersedia'}
+        return self.smart_commander.smart_execute(
+            tool_name=tool_name,
+            intent=intent,
+            params=params,
+            subcommand=subcommand
+        )
+
+    def autonomous_use_tool(self, tool_name: str, intent: str = 'generic',
+                            params: dict = None, subcommand: str = None,
+                            auto_install: bool = True,
+                            update_data: bool = False) -> dict:
+        """
+        API otonom ARC: pastikan tool tersedia (install sendiri bila perlu) ->
+        perbarui data -> pelajari antarmuka -> jalankan -> lapor di sesi terminal.
+        Ini memanfaatkan AutonomousSessionEngine.
+        """
+        params = params or {}
+        if self.session_engine is None:
+            return {'success': False,
+                    'error': 'AutonomousSessionEngine tidak tersedia'}
+        if not auto_install and not (self.smart_commander and
+                                     self.smart_commander.ensure_available(tool_name)):
+            return {'success': False,
+                    'error': f"auto_install=False dan tool '{tool_name}' tidak ada"}
+        return self.session_engine.run_autonomously({
+            'tool': tool_name,
+            'intent': intent,
+            'params': params,
+            'subcommand': subcommand,
+            'update_data': update_data,
+        })
+
     def _initialize_mutation_engine(self):
         """
         Inisialisasi Intelligent Mutation Engine untuk payload evolution.

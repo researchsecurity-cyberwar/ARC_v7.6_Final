@@ -38,7 +38,6 @@ class SqlmapValidator:
                 "--risk=2",
                 "--level=3",
                 "--timeout=10",
-                "--retries=2",
                 "--output-dir", output_dir,
                 "--purge-output"
             ]

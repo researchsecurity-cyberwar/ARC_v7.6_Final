@@ -38,9 +38,9 @@ class HttpxOrchestrator:
             timestamp = int(time.time())
             output_file = os.path.join(self.output_dir, f"httpx_{timestamp}.txt")
             
-            # Pilih fingerprint TLS acak
+            # Pilih fingerprint TLS acak (hentikan pengacakan bila tidak dipakai)
             tls_fingerprint = random.choice(self.tls_fingerprints)
-            
+
             # Bangun perintah httpx
             cmd = [
                 "httpx",
@@ -49,9 +49,13 @@ class HttpxOrchestrator:
                 "-threads", str(threads),
                 "-timeout", "10",
                 "-retries", "2",
-                "-tls-fingerprint", tls_fingerprint,
                 "-silent"
             ]
+
+            # httpx (projectdiscovery) TIDAK memiliki flag -tls-fingerprint
+            # (itu flag nuclei). Gunakan -tls-grab/-tls-probe bila tool mendukungnya.
+            # Kita tambahkan hanya jika dirasa perlu, dengan cara aman:
+            cmd.append("-tls-grab")
             
             # Eksekusi httpx
             start_time = time.time()

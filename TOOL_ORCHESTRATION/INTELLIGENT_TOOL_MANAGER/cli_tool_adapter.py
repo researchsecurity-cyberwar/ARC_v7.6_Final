@@ -2,6 +2,7 @@ import subprocess
 import json
 import os
 import re
+import shlex
 from typing import Dict, List
 
 class CLIToolAdapter:
@@ -87,7 +88,8 @@ class CLIToolAdapter:
         try:
             # Isi placeholder dengan parameter
             command = template.format(**parameters)
-            cmd_list = command.split()
+            # gunakan shlex.split agar aman terhadap nilai/path yang mengandung spasi
+            cmd_list = shlex.split(command)
             
             # Eksekusi perintah
             result = subprocess.run(

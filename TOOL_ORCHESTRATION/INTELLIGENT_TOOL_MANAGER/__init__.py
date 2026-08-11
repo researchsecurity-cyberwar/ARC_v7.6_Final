@@ -27,6 +27,16 @@ from .dependency_resolver import DependencyResolver
 from .self_healing_installer import SelfHealingInstaller
 from .cli_tool_adapter import CLIToolAdapter
 from .auto_tool_orchestrator import AutoToolOrchestrator, ensure_security_tools
+from .intelligent_tool_commander import (
+    IntelligentToolCommander,
+    ToolProfile,
+    Flag,
+    create_smart_tool_commander,
+)
+from .autonomous_session_engine import (
+    AutonomousSessionEngine,
+    create_autonomous_engine,
+)
 
 # Import dari auto_integration_engine
 from .auto_integration_engine.sandbox_integrator import SandboxIntegrator
@@ -42,6 +52,12 @@ __all__ = [
     'CLIToolAdapter',
     'AutoToolOrchestrator',
     'ensure_security_tools',
+    'IntelligentToolCommander',
+    'ToolProfile',
+    'Flag',
+    'create_smart_tool_commander',
+    'AutonomousSessionEngine',
+    'create_autonomous_engine',
     'SandboxIntegrator',
     'TemplateValidator',
     'HumanApprovalNotifier',

@@ -85,7 +85,13 @@ class DependencyResolver:
             subprocess.run([sys.executable, '-m', 'venv', env_path], check=True, timeout=60)
             
             # Aktifkan environment dan instal dependensi
-            pip_path = os.path.join(env_path, 'bin', 'pip')
+            # Path venv pip berbeda antar OS: bin/pip (POSIX) vs Scripts/pip.exe (Windows)
+            if os.name == 'nt':
+                pip_path = os.path.join(env_path, 'Scripts', 'pip.exe')
+                if not os.path.exists(pip_path):
+                    pip_path = os.path.join(env_path, 'Scripts', 'pip')
+            else:
+                pip_path = os.path.join(env_path, 'bin', 'pip')
             
             # Cari requirements.txt atau setup.py
             req_files = ['requirements.txt', 'requirements-dev.txt']

@@ -37,9 +37,11 @@ class AmassOrchestrator:
             # Tambahkan file konfigurasi jika tersedia
             if config_file and os.path.exists(config_file):
                 cmd.extend(["-config", config_file])
-            
-            # Tambahkan rate limiting
-            cmd.extend(["-delay", str(random.randint(100, 300))])  # 100-300ms delay
+
+            # Rate limiting untuk amass: gunakan -timeout untuk batas waktu
+            # peraskan query. Flag -f speed tidak tersedia di banyak rilis amass;
+            # ARC fallback ke -timeout agar kompatibel.
+            cmd.extend(["-timeout", "15"])
             
             # Eksekusi amass
             start_time = time.time()

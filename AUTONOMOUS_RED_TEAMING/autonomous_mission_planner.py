@@ -23,7 +23,10 @@ class AutonomousMissionPlanner:
             'report': self._execute_report_phase,
             'learn': self._execute_learn_phase
         }
-        
+        # IntelligentToolCommander (dipasang via set_arc_context) agar fase
+        # recon/exploit benar-benar menjalankan tools eksternal, bukan placeholder.
+        self.commander = None
+
         # Initialize Architecture Fingerprinter
         self.fingerprinter = None
         if FINGERPRINTER_AVAILABLE:
@@ -48,6 +51,55 @@ class AutonomousMissionPlanner:
             }
         }
     
+    def set_arc_context(self, commander):
+        """
+        Sambungkan mission planner ke IntelligentToolCommander ARC.
+        Dengan ini fase recon/exploit menjalankan tools eksternal secara nyata
+        (amass/nmap/nuclei/dll) bukan hasil placeholder.
+        """
+        self.commander = commander
+
+    def _run_recon_task(self, tool_name: str, intent: str,
+                        target_scope: dict) -> List[dict]:
+        """Jalankan task recon via commander; fallback placeholder bila tidak ada."""
+        if self.commander is None:
+            return []
+        domain = target_scope.get('domain') or target_scope.get('url')
+        url = target_scope.get('url')
+        params = {}
+        if intent == 'subdomain_enum' and domain:
+            params['target'] = domain
+        elif intent in ('port_scan',) and (domain or url):
+            params['target'] = domain or url
+        elif intent == 'web_scan' and url:
+            params['target'] = url
+            params['severity'] = target_scope.get('severity', 'high')
+        if not params:
+            return []
+        try:
+            res = self.commander.execute_task({
+                'tool': tool_name,
+                'intent': intent,
+                'params': params,
+                'timeout': 120
+            })
+        except Exception as e:
+            print(f"⚠️ Commander error for {tool_name}: {e}")
+            return []
+        out = (res.get('output') or {})
+        if out.get('success'):
+            stdout = out.get('stdout') or ''
+            return [{
+                'type': intent,
+                'tool': tool_name,
+                'command': res.get('command'),
+                'raw': stdout[:500],
+                'status': 'executed'
+            }]
+        return [{'type': intent, 'tool': tool_name,
+                 'status': 'failed',
+                 'error': (out.get('stderr') or res.get('error'))[:300]}]
+
     def plan_autonomous_mission(self, mission_type: str, target_scope: dict, duration_hours: int = 24):
         """
         Rencanakan misi otonom berdasarkan tipe dan durasi.
@@ -182,10 +234,21 @@ class AutonomousMissionPlanner:
     
     # Placeholder methods untuk implementasi nyata
     def _perform_subdomain_enum(self, target_scope: dict) -> List[dict]:
-        return [{'type': 'subdomain', 'value': f"dev.{target_scope.get('domain', 'example.com')}"}]
-    
+        # Eksekusi nyata via IntelligentToolCommander (amass/subfinder/assetfinder)
+        real = self._run_recon_task('amass', 'subdomain_enum', target_scope) or \
+               self._run_recon_task('subfinder', 'subdomain_enum', target_scope)
+        if real:
+            return real
+        return [{'type': 'subdomain', 'value': f"dev.{target_scope.get('domain', 'example.com')}",
+                 'status': 'simulated'}]
+
     def _perform_port_scan(self, target_scope: dict) -> List[dict]:
-        return [{'type': 'port', 'value': 80}, {'type': 'port', 'value': 443}]
+        real = self._run_recon_task('nmap', 'port_scan', target_scope) or \
+               self._run_recon_task('naabu', 'port_scan', target_scope)
+        if real:
+            return real
+        return [{'type': 'port', 'value': 80, 'status': 'simulated'},
+                {'type': 'port', 'value': 443, 'status': 'simulated'}]
     
     def _perform_tech_fingerprint(self, target_scope: dict) -> List[dict]:
         """Perform technology fingerprinting using ArchitectureFingerprinter."""
@@ -252,7 +315,13 @@ class AutonomousMissionPlanner:
         return findings
     
     def _perform_vuln_scan(self, target_scope: dict) -> List[dict]:
-        return [{'type': 'vulnerability', 'value': 'XSS'}, {'type': 'vulnerability', 'value': 'SQLi'}]
+        # Eksekusi nyata via IntelligentToolCommander (nuclei/dalfox)
+        real = self._run_recon_task('nuclei', 'web_scan', target_scope) or \
+               self._run_recon_task('dalfox', 'web_scan', target_scope)
+        if real:
+            return real
+        return [{'type': 'vulnerability', 'value': 'XSS', 'status': 'simulated'},
+                {'type': 'vulnerability', 'value': 'SQLi', 'status': 'simulated'}]
     
     def _perform_manual_testing(self, target_scope: dict) -> List[dict]:
         return [{'type': 'finding', 'value': 'Business logic flaw in payment flow'}]
