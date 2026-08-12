@@ -989,7 +989,15 @@ class ARCOrchestrator:
         recommendations = self.self_learning_orchestrator.get_learning_recommendations(
             learning_context, "vulnerability_scan"
         )
-        print(f"💡 Learning Engine Recommendations: {recommendations.get('success_probability', 0.5)*100}% success probability")
+        success_prob = recommendations.get('success_probability', 0.5)
+        if isinstance(success_prob, dict):
+            success_prob = success_prob.get('probability',
+                                            success_prob.get('success_probability', 0.5))
+        try:
+            success_prob = float(success_prob)
+        except (TypeError, ValueError):
+            success_prob = 0.5
+        print(f"💡 Learning Engine Recommendations: {success_prob * 100:.1f}% success probability")
 
         # Gunakan SovereignReasoner jika tersedia
         if self.sovereign_reasoner:

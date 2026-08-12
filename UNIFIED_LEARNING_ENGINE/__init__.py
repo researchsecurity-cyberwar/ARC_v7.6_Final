@@ -23,12 +23,8 @@ from .reinforcement_learning import ReinforcementLearner
 from .advanced_self_learning_integration import AdvancedSelfLearningIntegration
 
 # Backward compatibility imports (deprecated, will be removed in v3.0)
-import warnings
-warnings.warn(
-    "ModelTrainer, AIModelTrainer, and EnhancedMLTrainer are deprecated. Use UnifiedModelTrainer instead.",
-    DeprecationWarning,
-    stacklevel=2
-)
+# Warning is now emitted only when deprecated classes are instantiated,
+# not on every module import — see class __init__ methods in unified_model_trainer.py
 
 # Supporting components
 from .technique_knowledge_graph import TechniqueKnowledgeGraph

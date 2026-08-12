@@ -1,0 +1,77 @@
+=== SUMMARY OF FIXES APPLIED ===
+SESI INI (verifikasi & debug scraper + fix dict*int):
+
+[BUG KRITIS - Penyebab "banyak error" di Kali Linux]
+1. bugcrowd_scraper.py: FIX SyntaxError fatal di baris 67
+   (return []    def _get_public_programs_only(self): -> dipisah jadi 2 baris)
+   File ini SEBELUMNYA tidak bisa di-import sama sekali -> buat arc_main.py crash.
+2. intigriti_scraper.py: FIX SyntaxError fatal di baris 88
+   (return []    def get_program_details(...) -> dipisah jadi 2 baris)
+   File ini juga tidak bisa di-import. Kedua file ini adalah penyebab utama
+   "banyak error" saat ARC dijalankan di Kali.
+
+[FIX dict * int - sudah ada, dikuatkan]
+3. arc_main.py baris 992-1000: guard isinstance(success_prob, dict) + konversi float.
+4. self_learning_orchestrator.py: TAMBAH metode _normalize_probability (baris 229-269)
+   defense-in-depth agar success_probability SELALU float di SEMUA konsumen
+   (arc_main, closed_loop_feedback, learning_mixin, xss_detector, dst).
+5. telegram_notifier.py: alias /star -> /start (baris 188-190) + pesan error lebih jelas.
+
+[PERBAIKAN PARSING SCRAPER - agar berfungsi nyata]
+6. hackthebox_scraper.py: ganti regex JSON ("name":...) yg tidak pernah match
+   -> parse link HTML server-rendered /machines/<slug> & /challenges/<slug>.
+   TERBUKTI: sekarang 10 entri (sebelumnya 0).
+7. tryhackme_scraper.py: ganti regex JSON ("code":...) -> parse link /room/<code>.
+8. bugcrowd_scraper.py: 
+   - parse /engagements (struktur URL baru BugCrowd, /programs redirect ke /engagements)
+   - deteksi redirect ke login OAuth2 Okta (cookie expired) -> fallback publik
+   - validate_session deteksi redirect login.
+
+[PORTABILITAS]
+9. final_verify.py: FIX NameError BASE_DIR -> BASE (baris 168, 183).
+   FIX hardcoded path Windows 'c:/Projects/...' -> os.path.dirname(__file__).
+   TAMBAH 6 check baru (parsing fix) -> sekarang 95/95 PASS.
+
+[FILE BARU]
+10. live_scraper_test.py: uji nyata semua 8 scraper + Google VRP dengan
+    kredensial dari confiq.yaml.
+11. deploy_kali.sh: deploy & verifikasi otomatis di Kali Linux.
+
+=== STATUS UJI LIVE (kredensial dari confiq.yaml) ===
+- Google VRP: 13 program (PASS, tanpa cookie)
+- HackTheBox: 10 entri (PASS)
+- BugCrowd: session expired -> fallback publik
+- HackerOne/Intigriti/YesWeHack/Immunefi/TryHackMe: kredensial expired/invalid
+  (bukan bug kode - update session/token di config)
+
+=== CATATAN ===
+Semua 8 scraper kini BEhasil di-import & di-instansiasi tanpa crash.
+Kegagalan get_all_programs pada platform dgn session expired = kredensial
+kedaluwarsa, bukan bug kode. Update session_cookie/api_token di config lalu
+jalankan ulang. TryHackMe sementara rate-limited (HTTP 429) saat uji.
+=== [NEW] TELEGRAM HUMAN-IN-THE-LOOP BRIDGE (end-to-end) ===
+12. Bug: balasan Telegram /approve_op_<id> & /reject_op_<id>
+    TIDAK sampai ke HumanInTheLoopGate karena parse_command regex
+    hanya menangkap format underscore, bukan spasi dari notifikasi.
+13. Bug: /approve <ap_id> di prompt CLI (format notifikasi controller)
+    parse_command mengembalikan rid=None -> "perlu ID permintaan" ->
+    approval controller (install tool / sudo PIN) TIDAK bisa diapprove.
+14. FIX telegram_notifier.py: handle_telegram_command() sekarang route
+    /approve_op_<id>, /reject_op_<id>, /pause_op_<id> ke
+    human_in_the_loop_gate.handle_telegram_approval() (bridge).
+15. FIX session_approval_controller.parse_command(): dukung BOTH format
+    /approve_<id> [pin] (underscore, notifikasi telegram) DAN
+    /approve <id> [pin] (spasi, CLI/prompt) — rid diambil dari tokens bila
+    belum ter-parse oleh regex.
+16. arc_main.py: ARCOrchestrator otomatis set_human_in_the_loop_gate(notifier)
+    dan set_session_manager(controller) (lazy) -> seluruh approval end-to-end
+    dari Telegram sampai ke gate & block request_approval() di thread utama.
+17. FILE BARU test_telegram_bot.py (18 cek) & test_e2e_hitl.py (jalur poller).
+18. final_verify.py: TAMBAH section [6] BRIDGE (12 check) -> 108/108 PASS.
+
+=== STATUS UJI BRIDGE ===
+- test_telegram_bot.py: 18/18 PASS
+- test_e2e_hitl.py (poller -> handle_text -> bridge -> gate): SEMUA PASS
+  /approve_op_<id> -> gate approved=True -> request_approval()=True
+  /reject_op_<id> -> gate approved=False -> request_approval()=False
+  /approve <ap_id> & /approve_<ap_id> -> approval controller lokal OK

@@ -261,20 +261,48 @@ class SessionApprovalController:
     # ------------------------------------------------------------------
     @staticmethod
     def parse_command(text: str):
-        """Parse perintah approval. Return (cmd, id, pin)."""
+        """Parse perintah approval. Return (cmd, id, pin).
+        Mendukung 2 format yang dihasilkan notify()/format_telegram():
+          - /approve_<id> [pin]   (underscore, dipakai pesan telegram)
+          - /approve <id> [pin]   (spasi, dipakai prompt CLI)
+        """
         text = (text or '').strip()
         m = re.match(r'^/(approve|reject|pause|status)(?:_(\w+))?\s*(.*)$', text, re.I)
         if m:
             cmd = m.group(1).lower()
-            rid = m.group(2)
-            rest = m.group(3).strip()
-            pin = rest.split()[0] if (cmd == 'approve' and rest) else None
+            rid = m.group(2)            # dari format /approve_<id>
+            rest = m.group(3).strip()   # sisa teks setelah command
+            tokens = rest.split() if rest else []
+            if cmd == 'approve':
+                if not rid and tokens:
+                    # format /approve <id> [pin]
+                    rid = tokens[0]
+                    pin = tokens[1] if len(tokens) > 1 else None
+                else:
+                    # format /approve_<id> [pin]
+                    pin = tokens[0] if tokens else None
+            else:
+                # reject / pause / status
+                if not rid and tokens:
+                    rid = tokens[0]
+                pin = None
             return cmd, rid, pin
         return None, None, None
 
     def handle_text(self, text: str, source: str = 'cli') -> Dict:
         cmd, rid, pin = self.parse_command(text)
         if not cmd:
+            # Forward non-approval commands (e.g. /help, /start, /stop) to TelegramNotifier
+            if (source == 'telegram' and self.telegram is not None and
+                    hasattr(self.telegram, 'handle_telegram_command')):
+                parts = text.strip().split()
+                command = parts[0].lower() if parts else ''
+                args = parts[1:] if len(parts) > 1 else []
+                result = self.telegram.handle_telegram_command(command, args)
+                # handle_telegram_command already sends its own notification
+                # via send_notification, so flag to skip double-send in poll loop
+                result['_already_notified'] = True
+                return result
             return {'success': False, 'error': 'perintah tidak dikenali'}
         if cmd == 'status':
             pending = [r.id for r in self.requests.values() if r.status == 'pending']
@@ -286,6 +314,23 @@ class SessionApprovalController:
         if not rid:
             return {'success': False, 'error': 'perlu ID permintaan'}
         req = self._resolve(rid)
+
+        # --- BRIDGE ke Human-in-the-Loop Gate ---
+        # Approval dari ARCOrchestrator.human_in_the_loop_gate disimpan di
+        # gate.pending_approvals (ID 'op_...'), SEDANGKAN session_approval_controller
+        # menyimpan di self.requests (ID 'ap_...'). Karena keduanya terpisah,
+        # perintah /approve_op_... dari notifikasi gate TIDAK akan ditemukan di
+        # self.requests. Jika tidak ditemukan, teruskan ke TelegramNotifier yang
+        # akan merutekan ke human_in_the_loop_gate.handle_telegram_approval().
+        if req is None and source == 'telegram' and self.telegram is not None and \
+                hasattr(self.telegram, 'handle_telegram_command'):
+            parts = text.strip().split()
+            command = parts[0].lower() if parts else ''
+            args = parts[1:] if len(parts) > 1 else []
+            result = self.telegram.handle_telegram_command(command, args)
+            result['_already_notified'] = True
+            return result
+
         if cmd == 'approve':
             needed = req.pin if (req and req.pin_required) else None
             return self.approve(rid, pin, source)
@@ -326,7 +371,7 @@ class SessionApprovalController:
                         text = upd.get('message', {}).get('text')
                         if text and text.strip().startswith('/'):
                             result = self.handle_text(text, source='telegram')
-                            if self.telegram is not None:
+                            if not result.get('_already_notified') and self.telegram is not None:
                                 self.telegram.send_notification(
                                     self._fmt_result(result))
             except Exception:

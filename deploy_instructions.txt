@@ -1,0 +1,35 @@
+Untuk memastikan ARC berjalan di Kali Linux tanpa error, ikuti langkah-langkah berikut:
+
+1. Pastikan file di Kali Linux adalah versi terkini (yang sama dengan workspace Windows):
+   ```bash
+   # Di Kali Linux
+   mkdir -p ~/.arc
+   cp ~/arc/ARC_v7.6_Final/confiq.yaml ~/.arc/config.yaml
+   cd ~/arc/ARC_v7.6_Final
+   python final_verify.py
+   python arc_main.py
+   ```
+
+2. Jika masih menemukan error, pastikan file di Kali Linux adalah versi terbaru dengan menyalin seluruh folder dari Windows:
+   ```bash
+   # Di Kali Linux
+   cd ~
+   rm -rf ARC_v7.6_Final
+   cp -r ~/arc/ARC_v7.6_Final .
+   cd ARC_v7.6_Final
+   python final_verify.py
+   python arc_main.py
+   ```
+
+3. Untuk verifikasi cepat, jalankan ini di Kali Linux:
+   ```bash
+   # Periksa versi file yang sedang dipakai
+   ls -la c:/Projects/ARC_v7.6_Final/UNIFIED_LEARNING_ENGINE/self_learning_orchestrator.py
+   grep -n "_normalize_probability" c:/Projects/ARC_v7.6_Final/UNIFIED_LEARNING_ENGINE/self_learning_orchestrator.py
+   grep -n "isinstance.*dict" c:/Projects/ARC_v7.6_Final/arc_main.py
+   grep -n "/star" c:/Projects/ARC_v7.6_Final/DIALOGIC_COPILLOT/PLATFORM_COMMUNICATOR/telegram_notifier.py
+   ```
+
+Jika semua pernyataan di atas menunjukkan "found" atau "exists", maka kode sudah benar dan error harus hilang. Jika tidak, pastikan file di Kali Linux adalah yang terbaru.
+
+Catatan penting: Kesalahan `dict * int` biasanya terjadi karena file di Kali Linux adalah versi lama yang belum diperbarui dengan fix di workspace Windows. Pastikan file di Kali Linux adalah yang sama dengan file di c:/Projects/ARC_v7.6_Final.

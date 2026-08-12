@@ -197,21 +197,76 @@ class SelfLearningOrchestrator:
             'suggested_techniques': [],
             'potential_failures': []
         }
-        
-        # Prediksi success probability
-        recommendations['success_probability'] = self.model_trainer.predict_success_probability(
-            context, experience_type
+
+        # Prediction: predict_success_probability() may return a dict
+        # OR a float in various shapes. Normalize to a plain float here so
+        # ALL downstream consumers (arc_main, closed_loop_feedback,
+        # learning_mixin, xss_detector, dst) never see a dict. This is the
+        # defense-in-depth fix for "TypeError: unsupported operand type(s)
+        # for '*': 'dict' and 'int'".
+        recommendations['success_probability'] = self._normalize_probability(
+            self.model_trainer.predict_success_probability(context, experience_type)
         )
-        
+
         # Get relevant lessons
         recommendations['relevant_lessons'] = self.knowledge_base.get_relevant_lessons(context)
-        
+
         # Get potential failure modes
         failure_modes = self.knowledge_base.knowledge.get('failure_modes', {})
         if failure_modes:
             recommendations['potential_failures'] = list(failure_modes.keys())[:5]
-        
+
+        # Get suggested techniques from knowledge graph (safe fallback)
+        try:
+            techs = self.knowledge_base.knowledge.get('techniques', {})
+            if isinstance(techs, dict):
+                recommendations['suggested_techniques'] = list(techs.keys())[:5]
+        except Exception:
+            recommendations['suggested_techniques'] = []
+
         return recommendations
+    
+    @staticmethod
+    def _normalize_probability(value: Any) -> float:
+        """Konversi probabilitas apa pun (float, dict, str, None) menjadi float aman.
+
+        Menangani berbagai bentuk yang mungkin dikembalikan oleh model trainer:
+        - float / int langsung (0.7)
+        - dict {'probability': 0.7}
+        - dict {'success_probability': 0.7}
+        - dict bersarang {'success_probability': {'probability': 0.7}}
+        - None / string non-numeric -> default 0.5
+
+        Ini mencegah TypeError "dict * int" di konsumen hilir (arc_main dkk).
+        """
+        default = 0.5
+        def _extract(v):
+            # Telusuri dict bertingkat sampai menemukan angka float/int
+            depth = 0
+            while isinstance(v, dict) and depth < 10:
+                depth += 1
+                if isinstance(v.get('probability'), (int, float)) and not isinstance(v.get('probability'), bool):
+                    v = v['probability']
+                elif isinstance(v.get('success_probability'), (int, float)) and not isinstance(v.get('success_probability'), bool):
+                    v = v['success_probability']
+                elif v.get('probability') is not None:
+                    v = v['probability']
+                elif v.get('success_probability') is not None:
+                    v = v['success_probability']
+                else:
+                    return default
+            return v
+
+        extracted = _extract(value)
+        try:
+            prob = float(extracted)
+            if prob < 0.0:
+                return 0.0
+            if prob > 1.0:
+                return 1.0
+            return prob
+        except (TypeError, ValueError):
+            return default
     
     def enable_learning(self):
         """Aktifkan self-learning"""
@@ -351,6 +406,8 @@ class SelfLearningOrchestrator:
             return
         
         weaknesses = cwe_data.get('weaknesses', [])
+        if not weaknesses and cwe_data.get('error'):
+            print(f"⚠️ CWE data has error: {cwe_data['error']} — 0 entries integrated")
         print(f"📥 Integrating {len(weaknesses)} CWE entries into knowledge base")
         
         for weakness in weaknesses:
