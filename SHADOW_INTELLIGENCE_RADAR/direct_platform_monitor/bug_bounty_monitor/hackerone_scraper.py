@@ -21,8 +21,15 @@ class HackerOneScraper:
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (compatible; ARC-Scanner/1.0)',
             'Accept': 'application/json',
-            'Authorization': f'Bearer {api_token}'
         })
+        # HackerOne uses HTTP Basic Auth: token as username, empty password
+        # Token format: "identifier:secret" or just the token string
+        if ':' in api_token:
+            # Already in identifier:secret format
+            self.session.auth = (api_token.split(':')[0], api_token.split(':', 1)[1])
+        else:
+            # Use token as both username and password (common for PAT)
+            self.session.auth = (api_token, api_token)
         self.base_url = "https://api.hackerone.com/v1"
     
     def get_all_programs(self, include_inactive=False):

@@ -27,58 +27,78 @@ class BugCrowdScraper:
         self.base_url = "https://bugcrowd.com"
     
     def get_all_programs(self):
-        """
-        Dapatkan program yang TERSEDIA di dashboard.
-        Hanya mengembalikan program yang benar-benar bisa diakses.
-        """
+        """Dapatkan program yang TERSEDIA di dashboard. Fallback ke program publik
+        jika session cookie expired (dashboard redirect ke login OAuth2 Okta)."""
         try:
-            response = self.session.get(f"{self.base_url}/dashboard", timeout=10)
-            
-            if response.status_code == 200 and 'Sign in' not in response.text:
+            # BugCrowd uses _bugcrowd_session cookie
+            response = self.session.get(f"{self.base_url}/dashboard", timeout=15)
+            final_url = response.url or ""
+            # Deteksi redirect ke login Okta (URL mengandung login/oauth)
+            redirected_to_login = ('login' in final_url.lower() or 'oauth' in final_url.lower()
+                                   or final_url.startswith('https://login.hackers.bugcrowd.com'))
+
+            if response.status_code == 200 and not redirected_to_login and 'Sign in' not in response.text:
                 soup = BeautifulSoup(response.content, 'html.parser')
                 programs = []
-                
-                program_links = soup.find_all('a', href=re.compile(r'^/programs/[^/]+$'))
-                
+
+                # Try multiple selectors for program links (struktur lama /programs/,
+                # struktur baru /engagements/)
+                program_links = soup.find_all('a', href=re.compile(r'^/(programs|engagements)/[^/]+/?$'))
+
                 for link in program_links[:20]:
-                    program_slug = link['href'].replace('/programs/', '')
+                    href = link.get('href', '')
+                    program_slug = href.strip('/').split('/')[-1]
                     program_name = link.get_text(strip=True) or program_slug
-                    
+
                     programs.append({
                         'slug': program_slug,
                         'name': program_name,
                         'url': f"{self.base_url}/programs/{program_slug}",
                         'status': 'accessible'
                     })
-                
+
+                print(f"✅ BugCrowd: Found {len(programs)} programs")
                 return programs
+            elif response.status_code == 401 or redirected_to_login or 'Sign in' in response.text:
+                print(f"⚠️ BugCrowd: Session expired or invalid - fallback ke program publik")
+                return self._get_public_programs_only()
             else:
+                print(f"⚠️ BugCrowd: HTTP {response.status_code} - {response.text[:200]}")
                 return self._get_public_programs_only()
                 
         except Exception as e:
             print(f"⚠️ BugCrowd dashboard access failed: {e}")
+            import traceback
+            traceback.print_exc()
             return self._get_public_programs_only()
     
     def _get_public_programs_only(self):
-        """Fallback: hanya dapatkan informasi publik dasar."""
+        """Fallback: hanya dapatkan informasi publik dasar.
+        BugCrowd sekarang redirect /programs ke /engagements, jadi parse keduanya."""
         try:
             response = self.session.get(f"{self.base_url}/programs", timeout=10)
             if response.status_code == 200:
                 programs = []
-                program_slugs = re.findall(r'/programs/([a-zA-Z0-9-]+)', response.text)
-                
-                for slug in set(program_slugs[:10]):
+                # Struktur lama: /programs/<slug> ; struktur baru: /engagements/<slug>
+                program_slugs = re.findall(r'/(?:programs|engagements)/([a-zA-Z0-9-]+)', response.text)
+                seen = set()
+                for slug in program_slugs:
+                    if slug in seen or len(slug) < 2:
+                        continue
+                    seen.add(slug)
                     programs.append({
                         'slug': slug,
                         'name': slug,
                         'url': f"{self.base_url}/programs/{slug}",
                         'status': 'public'
                     })
-                
+                    if len(programs) >= 10:
+                        break
+
                 return programs
         except Exception as e:
             print(f"⚠️ Public program scraping failed: {e}")
-        
+
         return []
     
     def get_program_details(self, program_slug):
@@ -163,9 +183,13 @@ class BugCrowdScraper:
         return rules
     
     def validate_session(self):
-        """Validasi session cookie."""
+        """Validasi session cookie. Deteksi redirect ke login Okta (cookie expired)."""
         try:
             response = self.session.get(f"{self.base_url}/dashboard", timeout=10)
-            return response.status_code == 200 and 'Sign in' not in response.text
+            final_url = response.url or ""
+            redirected_to_login = ('login' in final_url.lower() or 'oauth' in final_url.lower()
+                                   or final_url.startswith('https://login.hackers.bugcrowd.com'))
+            return (response.status_code == 200 and not redirected_to_login
+                    and 'Sign in' not in response.text)
         except:
             return False

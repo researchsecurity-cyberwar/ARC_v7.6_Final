@@ -24,24 +24,27 @@ class TryHackMeScraper:
         self.base_url = "https://tryhackme.com"
     
     def get_available_rooms(self):
-        """Dapatkan room yang tersedia."""
+        """Dapatkan room yang tersedia (parse link HTML server-rendered)."""
         try:
             response = self.session.get(f"{self.base_url}/rooms", timeout=10)
             
             if response.status_code == 200 and 'Login' not in response.text:
-                soup = BeautifulSoup(response.content, 'html.parser')
                 rooms = []
-                
-                # Ekstrak room dari halaman
-                room_codes = re.findall(r'"code":"([^"]+)"', response.text)
-                room_titles = re.findall(r'"title":"([^"]+)"', response.text)
-                
-                for i, code in enumerate(room_codes[:10]):
+                # Halaman THM server-rendered berisi link /room/<code>
+                room_links = re.findall(r'href="[^"]*?/room/([a-zA-Z0-9-]+)"', response.text)
+                seen = set()
+                for code in room_links:
+                    if code in seen or len(code) < 2:
+                        continue
+                    seen.add(code)
+                    title = code.replace('-', ' ').title()
                     rooms.append({
                         'code': code,
-                        'title': room_titles[i] if i < len(room_titles) else code,
+                        'title': title,
                         'accessible': True
                     })
+                    if len(rooms) >= 10:
+                        break
                 
                 return rooms
             else:
@@ -72,6 +75,26 @@ class TryHackMeScraper:
         
         return {'code': room_code, 'tasks': [], 'accessible': False}
     
+    def get_all_programs(self) -> dict:
+        """Kompatibilitas dengan ARC main loop.
+        
+        THM adalah platform CTF, bukan bug bounty, jadi tidak ada 'program'
+        seperti di HackerOne/BugCrowd. Sebagai pengganti, kami mengekspor room
+        yang tersedia sebagai 'programs' dalam format dict agar kompatibel
+        dengan arc_main._update_intelligence_feed().
+        """
+        programs = {}
+        for room in self.get_available_rooms():
+            key = room.get('code', f'room_{len(programs)}')
+            programs[key] = {
+                'code': room.get('code', ''),
+                'title': room.get('title', room.get('code', '')),
+                'accessible': room.get('accessible', False),
+                'platform': 'tryhackme',
+                'status': 'active'
+            }
+        return programs
+
     def validate_session(self):
         """Validasi session cookie."""
         try:

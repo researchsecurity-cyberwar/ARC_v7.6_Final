@@ -24,24 +24,28 @@ class HackTheBoxScraper:
         self.base_url = "https://www.hackthebox.com"
     
     def get_active_machines(self):
-        """Dapatkan machine aktif yang tersedia."""
+        """Dapatkan machine aktif yang tersedia (parse link HTML server-rendered)."""
         try:
             response = self.session.get(f"{self.base_url}/machines", timeout=10)
             
             if response.status_code == 200 and 'Login' not in response.text:
-                soup = BeautifulSoup(response.content, 'html.parser')
                 machines = []
-                
-                # Ekstrak machine dari halaman
-                machine_names = re.findall(r'"name":"([^"]+)"', response.text)
-                machine_ips = re.findall(r'"ip":"([^"]+)"', response.text)
-                
-                for i, name in enumerate(machine_names[:10]):
+                # Halaman HTB server-rendered berisi link /machines/<slug>
+                machine_links = re.findall(r'href="[^"]*?/machines/([a-zA-Z0-9-]+)"', response.text)
+                seen = set()
+                for slug in machine_links:
+                    if slug in seen or len(slug) < 2:
+                        continue
+                    seen.add(slug)
+                    name = slug.replace('-', ' ').title()
                     machines.append({
                         'name': name,
-                        'ip': machine_ips[i] if i < len(machine_ips) else '',
+                        'slug': slug,
+                        'ip': '',
                         'accessible': True
                     })
+                    if len(machines) >= 10:
+                        break
                 
                 return machines
             else:
@@ -52,24 +56,28 @@ class HackTheBoxScraper:
             return []
     
     def check_new_challenges(self):
-        """Cek challenge baru yang tersedia."""
+        """Cek challenge baru yang tersedia (parse link HTML server-rendered)."""
         try:
             response = self.session.get(f"{self.base_url}/challenges", timeout=10)
             
             if response.status_code == 200:
-                soup = BeautifulSoup(response.content, 'html.parser')
                 challenges = []
-                
-                # Ekstrak challenge dasar
-                challenge_names = re.findall(r'"name":"([^"]+)"', response.text)
-                challenge_categories = re.findall(r'"category":"([^"]+)"', response.text)
-                
-                for i, name in enumerate(challenge_names[:5]):
+                # Halaman HTB server-rendered berisi link /challenges/<slug>
+                challenge_links = re.findall(r'href="[^"]*?/challenges/([a-zA-Z0-9-]+)"', response.text)
+                seen = set()
+                for slug in challenge_links:
+                    if slug in seen or len(slug) < 2:
+                        continue
+                    seen.add(slug)
+                    name = slug.replace('-', ' ').title()
                     challenges.append({
                         'name': name,
-                        'category': challenge_categories[i] if i < len(challenge_categories) else 'unknown',
+                        'slug': slug,
+                        'category': 'unknown',
                         'accessible': True
                     })
+                    if len(challenges) >= 5:
+                        break
                 
                 return challenges
             else:
@@ -79,6 +87,39 @@ class HackTheBoxScraper:
             print(f"⚠️ HTB challenge scraping failed: {e}")
             return []
     
+    def get_all_programs(self) -> dict:
+        """Kompatibilitas dengan ARC main loop.
+        
+        HTB adalah platform CTF, bukan bug bounty, jadi tidak ada 'program'
+        seperti di HackerOne/BugCrowd. Sebagai pengganti, kami menggabungkan
+        active machines dan challenges yang tersedia sebagai 'programs' dalam
+        format dict agar kompatibel dengan arc_main._update_intelligence_feed().
+        """
+        programs = {}
+        # Masukkan machine aktif
+        for machine in self.get_active_machines():
+            key = machine.get('name', f'machine_{len(programs)}')
+            programs[key] = {
+                'name': machine.get('name', ''),
+                'type': 'machine',
+                'ip': machine.get('ip', ''),
+                'accessible': machine.get('accessible', False),
+                'platform': 'hackthebox',
+                'status': 'active'
+            }
+        # Masukkan challenges
+        for challenge in self.check_new_challenges():
+            key = f"challenge_{challenge.get('name', len(programs))}"
+            programs[key] = {
+                'name': challenge.get('name', ''),
+                'type': 'challenge',
+                'category': challenge.get('category', 'unknown'),
+                'accessible': challenge.get('accessible', False),
+                'platform': 'hackthebox',
+                'status': 'active'
+            }
+        return programs
+
     def validate_session(self):
         """Validasi session cookie."""
         try:

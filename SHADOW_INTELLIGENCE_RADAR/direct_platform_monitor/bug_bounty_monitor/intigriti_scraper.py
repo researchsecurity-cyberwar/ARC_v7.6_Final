@@ -25,14 +25,13 @@ class IntigritiScraper:
         self.base_url = "https://api.intigriti.com/external/researcher/v1"
     
     def get_all_programs(self, include_inactive=False):
-        """
-        Dapatkan daftar program yang TERSEDIA untuk peneliti ini.
-        """
+        """Dapatkan daftar program yang TERSEDIA untuk peneliti ini."""
         try:
             programs = []
             page = 0
             
             while True:
+                # Intigriti API: /companies returns programs for the researcher
                 url = f"{self.base_url}/companies"
                 params = {
                     'size': 100,
@@ -49,6 +48,10 @@ class IntigritiScraper:
                         break
                     
                     for company in content:
+                        # Check if researcher has access to this program
+                        if not company.get('isOpen', False) and not include_inactive:
+                            continue
+                            
                         program_info = {
                             'handle': company.get('handle'),
                             'name': company.get('name', company.get('handle')),
@@ -58,21 +61,30 @@ class IntigritiScraper:
                             'is_public': company.get('isPublic', False)
                         }
                         
-                        if include_inactive or program_info['state'] == 'open':
-                            programs.append(program_info)
+                        programs.append(program_info)
                     
                     if page >= data.get('totalPages', 1) - 1:
                         break
                     page += 1
                     time.sleep(1)
                 
+                elif response.status_code == 401:
+                    print(f"⚠️ Intigriti API: Unauthorized (401) - Check Personal Access Token")
+                    break
+                elif response.status_code == 403:
+                    print(f"⚠️ Intigriti API: Forbidden (403) - Token may lack permissions")
+                    break
                 else:
+                    print(f"⚠️ Intigriti API: HTTP {response.status_code} - {response.text[:200]}")
                     break
             
+            print(f"✅ Intigriti: Found {len(programs)} programs")
             return programs
             
         except Exception as e:
             print(f"⚠️ Intigriti API fetch failed: {e}")
+            import traceback
+            traceback.print_exc()
             return []
     
     def get_program_details(self, company_handle):
