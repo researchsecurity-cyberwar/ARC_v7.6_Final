@@ -287,21 +287,28 @@ class CVEOSINTUpdater:
         Ambil data CWE terbaru yang tersedia.
         LAZY AUTO-DOWNLOAD: jika belum ada data JSON, otomatis download CWE.
         Jika offline/gagal total, fallback ke XML lama yang tersisa di data_dir.
+        Jika cache JSON rusak / kosong (0 weaknesses), force re-download.
         """
         # 1) Coba file JSON yang sudah ada
         path = self._get_latest_cwe_json_path()
         if path:
             try:
                 with open(path, 'r', encoding='utf-8') as f:
-                    return json.load(f)
+                    data = json.load(f)
+                # Jika cache valid (ada weaknesses dan tidak kosong), pakai
+                if data.get('weaknesses') and len(data['weaknesses']) > 0:
+                    return data
+                # Cache rusak/kosong -> lanjut ke re-download di bawah
             except Exception:
                 pass
 
-        # 2) Belum ada -> auto-download sendiri (agar ARC tidak perlu run ulang)
+        # 2) Cache kosong/rusak -> auto-download sendiri (force=True)
         try:
             path = self.update_cwe_feed(force=True)
             with open(path, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                data = json.load(f)
+            if data.get('weaknesses'):
+                return data
         except Exception as e:
             print(f"⚠️ CWE auto-download gagal: {e}")
 

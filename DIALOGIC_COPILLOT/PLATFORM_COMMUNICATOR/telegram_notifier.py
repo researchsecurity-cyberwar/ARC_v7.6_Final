@@ -185,10 +185,13 @@ class TelegramNotifier:
         elif command == '/stop':
             return self._stop_autonomous_ops()
 
-        elif command == '/start':
+        elif command in ('/start', '/star'):
+            # '/star' adalah alias ramah pengguna untuk '/start'
             return self._start_autonomous_ops()
 
-        return {'success': False, 'message': 'Unknown command. Use /help for available commands.'}
+        return {'success': False,
+                'message': 'Unknown command. Use /help for the list of available commands. '
+                           'Note: use /start (bukan /star) untuk memulai autonomous operations.'}
 
     def _update_session_cookie(self, platform: str, new_cookie: str) -> Dict[str, Any]:
         """Perbarui session cookie untuk platform tertentu."""
@@ -642,7 +645,7 @@ Example: /google_template google_vrp {"title":"XSS"}
 
 ⚙️ <b>AUTONOMOUS OPERATIONS</b>
 /start
-→ Start 24/7 autonomous operations
+→ Start 24/7 autonomous operations (alias: /star)
 /stop
 → Stop autonomous operations
 
