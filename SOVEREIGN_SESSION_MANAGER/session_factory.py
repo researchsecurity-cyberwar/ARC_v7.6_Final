@@ -1,5 +1,6 @@
 import requests
 from typing import Dict, Any
+from SOVEREIGN_SESSION_MANAGER.cookie_utils import set_cookie_string, set_xsrf_token
 
 class SessionFactory:
     """
@@ -69,27 +70,56 @@ class SessionFactory:
         return headers
     
     def _setup_session_cookies(self, session, platform: str, credentials: Dict[str, Any]):
-        """Atur cookies sesi berdasarkan kredensial."""
+        """Atur cookies sesi berdasarkan kredensial.
+
+        Semua platform memakai jalur seragam lewat ``set_cookie_string``:
+        dukung raw cookie-string 'nama=value; nama2=value2' (session+xsrf sekaligus)
+        ATAU nilai tunggal -> dipasang dengan nama cookie default platform.
+        """
+        session_cookie = credentials.get('session_cookie')
+
         if platform == 'hackerone':
-            if 'session_token' in credentials:
+            # H1 API token = Identifier (username) + Value (password) via HTTP Basic
+            # atau gunakan session cookie + xsrf token untuk hybrid mode
+            if 'api_token_id' in credentials and 'api_token' in credentials:
+                # Mode API token: gunakan HTTP Basic Auth
+                session.auth = (credentials['api_token_id'], credentials['api_token'])
+            elif 'session_cookie' in credentials:
+                # Mode session cookie: set cookie dan xsrf token
+                set_cookie_string(session, credentials['session_cookie'], default='hackerone_session')
+                set_xsrf_token(session, credentials.get('xsrf_token'), platform='hackerone')
+            elif 'session_token' in credentials:
+                # Mode Bearer token
                 session.headers['Authorization'] = f'Bearer {credentials["session_token"]}'
-        
+
         elif platform == 'bugcrowd':
-            if 'session_cookie' in credentials:
-                session.cookies.set('_bugcrowd_session', credentials['session_cookie'])
-        
+            set_cookie_string(session, session_cookie, default='_bugcrowd_session')
+
         elif platform == 'intigriti':
-            if 'session_cookie' in credentials:
-                session.cookies.set('SESSION', credentials['session_cookie'])
-        
+            # Intigriti: dukungan dual untuk Personal Access Token dan session cookie
+            if 'personal_access_token' in credentials:
+                # Mode Personal Access Token: set X-API-KEY header
+                session.headers['X-API-KEY'] = credentials['personal_access_token']
+                # juga set session cookie jika ada (hybrid mode)
+                if 'session_cookie' in credentials:
+                    set_cookie_string(session, credentials['session_cookie'], default='SESSION')
+            elif 'session_cookie' in credentials:
+                # Mode session cookie saja
+                set_cookie_string(session, credentials['session_cookie'], default='SESSION')
+            # set xsrf token untuk intigriti (X-XSRF-TOKEN header)
+            set_xsrf_token(session, credentials.get('xsrf_token'), platform='intigriti')
+
+        elif platform == 'yeswehack':
+            set_cookie_string(session, session_cookie, default='session')
+
         elif platform == 'immunefi':
-            if 'session_cookie' in credentials:
-                session.cookies.set('sessionid', credentials['session_cookie'])
-        
+            set_cookie_string(session, session_cookie, default='sessionid')
+
         elif platform == 'hackthebox':
-            if 'session_cookie' in credentials:
-                session.cookies.set('htb_session', credentials['session_cookie'])
-        
+            set_cookie_string(session, session_cookie, default='htb_session')
+
         elif platform == 'tryhackme':
-            if 'session_cookie' in credentials:
-                session.cookies.set('connect.sid', credentials['session_cookie'])
+            set_cookie_string(session, session_cookie, default='connect.sid')
+
+        # XSRF/CSRF token opsional (untuk aksi POST/submit report)
+        set_xsrf_token(session, credentials.get('xsrf_token'), platform=platform)

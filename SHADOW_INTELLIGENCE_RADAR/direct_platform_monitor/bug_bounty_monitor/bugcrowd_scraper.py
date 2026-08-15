@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import re
 import json
 import time
+from SOVEREIGN_SESSION_MANAGER.cookie_utils import set_cookie_string, set_xsrf_token
 
 class BugCrowdScraper:
     """
@@ -16,14 +17,15 @@ class BugCrowdScraper:
     - Semua data scope dan peraturan diambil dari halaman HTML
     """
     
-    def __init__(self, session_cookie):
+    def __init__(self, session_cookie, xsrf_token=None):
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (compatible; ARC-Scanner/1.0)',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
         })
-        # Set session cookie manual
-        self.session.cookies.set('_bugcrowd_session', session_cookie)
+        # Set session cookie (dukung raw cookie-string & nilai tunggal)
+        set_cookie_string(self.session, session_cookie, default='_bugcrowd_session')
+        set_xsrf_token(self.session, xsrf_token, platform='bugcrowd')
         self.base_url = "https://bugcrowd.com"
     
     def get_all_programs(self):

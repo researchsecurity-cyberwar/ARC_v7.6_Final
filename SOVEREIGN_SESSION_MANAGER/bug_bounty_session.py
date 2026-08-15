@@ -69,15 +69,19 @@ class BugBountySession:
         if platform == 'hackerone':
             if 'api_token' not in credentials:
                 return {'success': False, 'error': 'HackerOne requires api_token in config.yaml'}
-            
-            # Buat sesi dengan API token
-            session = self.session_factory.create_session(platform, {'api_token': credentials['api_token']})
-            session.headers['Authorization'] = f'Bearer {credentials["api_token"]}'
-            
-            if self._verify_session_validity(session, platform):
-                return {'success': True, 'session': session, 'platform': platform}
+
+            # H1 API token = Identifier (username) + Value (secret), HTTP Basic Auth.
+            # (Bukan Bearer. Identifier tampil terpisah saat token dibuat.)
+            ses = self.session_factory.create_session(platform, credentials)
+            if credentials.get('api_token_id'):
+                ses.auth = (credentials['api_token_id'], credentials['api_token'])
+            elif 'session_token' in credentials:
+                ses.headers['Authorization'] = f'Bearer {credentials["session_token"]}'
+
+            if self._verify_session_validity(ses, platform):
+                return {'success': True, 'session': ses, 'platform': platform}
             else:
-                return {'success': False, 'error': 'Invalid HackerOne API token'}
+                return {'success': False, 'error': 'Invalid HackerOne API token (cek api_token_id + api_token)'}
         
         elif platform == 'intigriti':
             if 'personal_access_token' not in credentials:

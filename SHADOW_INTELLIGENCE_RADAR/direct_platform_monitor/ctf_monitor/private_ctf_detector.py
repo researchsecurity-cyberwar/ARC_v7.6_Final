@@ -2,6 +2,9 @@ import requests
 from bs4 import BeautifulSoup
 import re
 
+from SHADOW_INTELLIGENCE_RADAR.direct_platform_monitor.ctf_monitor.hackthebox_scraper import HackTheBoxScraper
+from SHADOW_INTELLIGENCE_RADAR.direct_platform_monitor.ctf_monitor.tryhackme_scraper import TryHackMeScraper
+
 class PrivateCTFDetector:
     """
     Deteksi CTF private via login.

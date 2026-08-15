@@ -7,6 +7,25 @@ from typing import Dict
 # Tambahkan root folder ke Python path
 sys.path.insert(0, os.path.abspath('.'))
 
+# ==================================================================
+# MODE CHAT: python arc_main.py --chat [--chat-target <target>]
+# Guard ini diletakkan SEBELUM import modul berat, jadi mode chat
+# tidak me-load loop autonomous sama sekali (aman walau ada dep
+# yang belum ter-install di Kali Linux).
+# ==================================================================
+if "--chat" in sys.argv:
+    from DIALOGIC_COPILLOT.arc_chat_engine import ArcChatEngine
+    from DIALOGIC_COPILLOT.chat_repl import run_repl
+    _chat_engine = ArcChatEngine()
+    if "--chat-target" in sys.argv:
+        try:
+            _t = sys.argv[sys.argv.index("--chat-target") + 1]
+            _chat_engine.start_conversation(_t)
+        except (IndexError, ValueError):
+            pass
+    run_repl(_chat_engine)
+    sys.exit(0)
+
 # Modul Inti ARC
 from SOVEREIGN_SESSION_MANAGER.credential_vault import CredentialVault
 from SOVEREIGN_SESSION_MANAGER.platform_session_manager import PlatformSessionManager
@@ -43,6 +62,9 @@ from SHADOW_INTELLIGENCE_RADAR.direct_platform_monitor.bug_bounty_monitor.bugcro
 from SHADOW_INTELLIGENCE_RADAR.direct_platform_monitor.bug_bounty_monitor.intigriti_scraper import IntigritiScraper
 from SHADOW_INTELLIGENCE_RADAR.direct_platform_monitor.bug_bounty_monitor.yeswehack_scraper import YesWeHackScraper
 from SHADOW_INTELLIGENCE_RADAR.direct_platform_monitor.bug_bounty_monitor.immunefi_scraper import ImmunefiScraper
+
+# CTFtime – public API, tidak memerlukan kredensial
+from SHADOW_INTELLIGENCE_RADAR.direct_platform_monitor.ctf_monitor.ctftime_scraper import CTFtimeScraper
 
 # Modul Integrator Google Bug Bounty (opsional - butuh requests + beautifulsoup4)
 try:
@@ -820,6 +842,7 @@ class ARCOrchestrator:
             except Exception:
                 pass
         
+        
         thm_creds = self.config_loader.get_platform_credentials('tryhackme')
         if thm_creds and thm_creds.get('session_cookie'):
             try:
@@ -827,6 +850,13 @@ class ARCOrchestrator:
                 self.scrapers['tryhackme'] = TryHackMeScraper(thm_creds['session_cookie'])
             except Exception:
                 pass
+        
+        # CTFtime – API publik tanpa auth, selalu tersedia
+        try:
+            self.scrapers['ctftime'] = CTFtimeScraper()
+        except Exception:
+            pass
+
     
     def _initialize_google_vrp(self):
         """Inisialisasi Google VRP Integrator (bughunters.google.com).

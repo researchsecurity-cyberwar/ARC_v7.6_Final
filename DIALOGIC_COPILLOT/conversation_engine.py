@@ -28,6 +28,9 @@ class ConversationEngine:
         self.telegram_notifier = None
         self.human_in_the_loop_gate = None
         self.platform_submitters = {}  # {'hackerone': HackerOneSubmitter(), ...}
+
+        # ProgramBrief handler (DIALOGIC_COPILLOT.program_brief) — di-inject dari ArcChatEngine
+        self.brief_engine = None
         
         # Platform yang mendukung auto-response via API
         self.api_supported_platforms = ['hackerone', 'intigriti']
@@ -46,7 +49,9 @@ class ConversationEngine:
         Mulai percakapan baru untuk target tertentu dengan data temuan opsional.
         """
         if session_id is None:
-            session_id = f"{target_domain}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            # Nama file harus aman untuk path apa pun (target bisa berisi '/' dll.)
+            safe_target = re.sub(r'[^\w\-.]', '_', target_domain)
+            session_id = f"{safe_target}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         
         conversation_file = os.path.join(self.memory_dir, f"{session_id}.json")
         self.current_conversation = {
@@ -110,7 +115,17 @@ class ConversationEngine:
     def _handle_researcher_command(self, user_message: str) -> Optional[str]:
         """Tangani perintah dari peneliti manusia."""
         user_message_lower = user_message.lower()
-        
+
+        # Delegasi ke ProgramBrief handler (program_brief.py) jika tersedia.
+        # ArcChatEngine meng-inject dirinya sebagai brief_engine.
+        if self.brief_engine is not None:
+            try:
+                brief_response = self.brief_engine.handle_brief_command(user_message)
+                if brief_response:
+                    return brief_response
+            except Exception as e:
+                return f"⚠️ Brief engine error (safe-fallback): {e}"
+
         # Ekstrak informasi konteks
         platform = self._extract_platform(user_message) or self.current_conversation['context'].get('platform')
         finding_id = self._extract_finding_id(user_message) or self.current_conversation['context'].get('finding_data', {}).get('id')
@@ -517,3 +532,8 @@ class ConversationEngine:
     def set_platform_submitters(self, submitters: dict):
         """Set platform submitters untuk integrasi auto-submit."""
         self.platform_submitters = submitters
+
+    def set_brief_engine(self, brief_engine):
+        """Set ProgramBrief handler (arc_chat_engine) agar perintah brief
+        (set brief / tambah scope / manifest / dll) diproses dalam dialog."""
+        self.brief_engine = brief_engine

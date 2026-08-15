@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import re
 import time
+from SOVEREIGN_SESSION_MANAGER.cookie_utils import set_cookie_string, set_xsrf_token
 
 class ImmunefiScraper:
     """
@@ -14,16 +15,16 @@ class ImmunefiScraper:
     - Fokus pada ekstraksi scope DeFi dan persyaratan ekonomi
     """
     
-    def __init__(self, session_cookie):
+    def __init__(self, session_cookie, xsrf_token=None):
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (compatible; ARC-Scanner/1.0)',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
         })
-        # Set cookies manual
-        cookies = dict(item.split('=', 1) for item in session_cookie.split('; ') if '=' in item)
-        for name, value in cookies.items():
-            self.session.cookies.set(name, value)
+        # Set cookies: raw cookie-string 'name=value; name2=value2' (session+xsrf),
+        # atau nilai tunggal -> dipasang sebagai cookie 'sessionid' (Firebase).
+        set_cookie_string(self.session, session_cookie, default='sessionid')
+        set_xsrf_token(self.session, xsrf_token, platform='immunefi')
         self.base_url = "https://immunefi.com"
     
     def get_all_programs(self):

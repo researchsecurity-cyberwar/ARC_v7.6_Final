@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import re
 import time
+from SOVEREIGN_SESSION_MANAGER.cookie_utils import set_cookie_string, set_xsrf_token
 
 class HackTheBoxScraper:
     """
@@ -14,13 +15,15 @@ class HackTheBoxScraper:
     - Tidak ada API publik untuk scraping machine
     """
     
-    def __init__(self, session_cookie):
+    def __init__(self, session_cookie, xsrf_token=None):
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (compatible; ARC-Scanner/1.0)',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
         })
-        self.session.cookies.set('PHPSESSID', session_cookie)
+        # Cookie Laravel HTB = 'htb_session' (bukan PHPSESSID yang usang)
+        set_cookie_string(self.session, session_cookie, default='htb_session')
+        set_xsrf_token(self.session, xsrf_token, platform='hackthebox')
         self.base_url = "https://www.hackthebox.com"
     
     def get_active_machines(self):

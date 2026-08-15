@@ -70,10 +70,10 @@ class IntigritiScraper:
                 
                 elif response.status_code == 401:
                     print(f"⚠️ Intigriti API: Unauthorized (401) - Check Personal Access Token")
-                    break
+                    return self._get_public_programs_only()
                 elif response.status_code == 403:
                     print(f"⚠️ Intigriti API: Forbidden (403) - Token may lack permissions")
-                    break
+                    return self._get_public_programs_only()
                 else:
                     print(f"⚠️ Intigriti API: HTTP {response.status_code} - {response.text[:200]}")
                     break
@@ -85,8 +85,44 @@ class IntigritiScraper:
             print(f"⚠️ Intigriti API fetch failed: {e}")
             import traceback
             traceback.print_exc()
-            return []
+            return self._get_public_programs_only()
     
+
+    def _get_public_programs_only(self):
+        """
+        Fallback: dapatkan program publik dari halaman web Intigriti.
+        Bekerja tanpa API token -- meng-scrape halaman bug bounty programs.
+        """
+        try:
+            session = requests.Session()
+            session.headers.update({
+                'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            })
+
+            response = session.get("https://www.intigriti.com/researchers/bug-bounty-programs", timeout=15)
+            if response.status_code == 200:
+                programs = []
+                # Ekstrak handle dan name dari JSON yang tersemat di halaman
+                pairs = re.findall(r'"handle":"([^"]+)","name":"([^"]+)"', response.text)
+
+                for handle, name in pairs:
+                    program_info = {
+                        'handle': handle,
+                        'name': name,
+                        'state': 'open',
+                        'url': f"https://www.intigriti.com/companies/{handle}",
+                        'offers_bounties': True,
+                        'is_public': True
+                    }
+                    programs.append(program_info)
+
+                print(f"✅ Intigriti (public): Found {len(programs)} programs")
+                return programs
+        except Exception as e:
+            print(f"⚠️ Intigriti public program scraping failed: {e}")
+
+        return []
+
     def get_program_details(self, company_handle):
         """
         Dapatkan detail program lengkap termasuk scope, peraturan, dan persyaratan.

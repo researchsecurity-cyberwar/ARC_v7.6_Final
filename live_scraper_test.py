@@ -286,6 +286,61 @@ except Exception as e:
     traceback.print_exc()
 
 # ============================================================
+# 9. CTFTIME (API publik — TANPA auth, tanpa cookie, selalu tersedia)
+# ============================================================
+print("\n" + "=" * 70)
+print("9. CTFTIME — API publik (tanpa autentikasi)")
+print("=" * 70)
+try:
+    ctf_path = os.path.join(BASE, "SHADOW_INTELLIGENCE_RADAR/direct_platform_monitor/ctf_monitor/ctftime_scraper.py")
+    ctf_mod = import_module("ctftime_scraper", ctf_path)
+    scr = ctf_mod.CTFtimeScraper()
+
+    report("CTFtime: import & init (tanpa kredensial)", True)
+
+    t0 = time.time()
+    ok_sess = scr.validate_session()
+    report("CTFtime: validate_session (publik API)", ok_sess, f"{time.time()-t0:.1f}s")
+
+    print(f"  🔧 [Fakta] CTFtime auth: TIDAK PERLU (public REST API, tidak kadaluarsa)")
+    print(f"  🔧 [Fakta] Base URL: https://ctftime.org/api/v1")
+
+    t0 = time.time()
+    upcoming = scr.get_upcoming_events(limit=20)
+    report("CTFtime: get_upcoming_events()", isinstance(upcoming, list) and len(upcoming) > 0,
+           f"{len(upcoming)} event, {time.time()-t0:.1f}s")
+    if upcoming:
+        ev = upcoming[0]
+        print(f"  📊 Event: {ev.get('title', '?')}")
+        print(f"     format={ev.get('format', '?')}, onsite={ev.get('onsite', '?')}")
+        print(f"     participants={ev.get('participants', 0)}, duration={ev.get('duration_hours', 0)} jam")
+        print(f"     start={ev.get('start', '?')}")
+
+    t0 = time.time()
+    teams = scr.get_top_teams(limit=5)
+    report("CTFtime: get_top_teams()", isinstance(teams, list) and len(teams) > 0,
+           f"{len(teams)} tim, {time.time()-t0:.1f}s")
+    if teams:
+        for t in teams[:3]:
+            print(f"  📊 Rank {t['rank']}: {t['name']} — score={t['score']} — country={t['country']}")
+
+    t0 = time.time()
+    programs = scr.get_all_programs()
+    report("CTFtime: get_all_programs() (ARC compat dict)", isinstance(programs, dict) and len(programs) > 0,
+           f"{len(programs)} program, {time.time()-t0:.1f}s")
+    if programs:
+        k = list(programs.keys())[0]
+        print(f"  📊 Contoh: {k} — {programs[k].get('name', '?')} — {programs[k].get('platform', '?')}")
+
+    t0 = time.time()
+    intel = scr.get_intelligence()
+    report("CTFtime: get_intelligence() (full dump)", isinstance(intel, dict),
+           f"events={len(intel.get('upcoming_events',[]))}, teams={len(intel.get('top_teams',[]))}, {time.time()-t0:.1f}s")
+except Exception as e:
+    report("CTFtime: import/exec", False, str(e)[:300])
+    traceback.print_exc()
+
+# ============================================================
 # HASIL AKHIR
 # ============================================================
 passed = sum(1 for r in results if r)

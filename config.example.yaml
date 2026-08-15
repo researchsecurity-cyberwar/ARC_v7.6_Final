@@ -24,8 +24,11 @@ credentials:
   # ==========================================================
   bug_bounty:
     # Platform dengan API token permanen (tidak perlu update manual - berjalan selamanya)
+    # HackerOne: API token = DUA bagian, Identifier (username) + Value (password).
+    # Keduanya tampil terpisah saat membuat token di H1 → Settings → API Tokens.
     hackerone_main:
-      api_token: "h1_your_actual_api_token_here"  # H1 → Settings → API Tokens
+      api_token_id: "h1_your_token_identifier_here"  # identifier (username)
+      api_token: "h1_your_token_value_here"          # value (secret)
 
     intigriti_personal:
       personal_access_token: "intigriti_your_token_here"  # Intigriti → Account → API Tokens
@@ -34,17 +37,21 @@ credentials:
     # BugCrowd menggunakan OAuth 2.0 + Okta yang tidak bisa diautomasi
     bugcrowd_corp:
       session_cookie: "_bugcrowd_session=real_value_from_browser; XSRF-TOKEN=real_value"
+      xsrf_token: ""  # opsional: dikirim sbg header X-CSRF-Token untuk aksi POST/submit
     
     yeswehack_researcher:
       session_cookie: "session=real_value_from_browser; XSRF-TOKEN=real_value"
+      xsrf_token: ""  # opsional: X-CSRF-Token untuk POST
     
     immunefi_bounty:
       session_cookie: "sessionid=real_value_from_browser; csrftoken=real_value"
+      xsrf_token: ""  # opsional: X-CSRF-Token untuk POST
     
     # bughunters.google.com (opsional - untuk scraping scope yang butuh login)
     # Tanpa cookie, integrator tetap jalan untuk scope publik (13 program Google VRP)
     bughunters_google:
       session_cookie: "SID=real_value_from_browser; HSID=real_value"
+      xsrf_token: ""  # opsional untuk Google (umumnya token di header khusus)
   
   # ==========================================================
   # CTF PLATFORMS
@@ -54,9 +61,11 @@ credentials:
     # HTB dan THM tidak memiliki form login yang bisa diautomasi
     hackthebox_pro:
       session_cookie: "htb_session=real_value_from_browser"
+      xsrf_token: ""  # opsional (CTF umumnya tidak butuh untuk GET)
     
     tryhackme_student:
       session_cookie: "connect.sid=real_value_from_browser"
+      xsrf_token: ""  # opsional (CTF umumnya tidak butuh untuk GET)
 
 # ============================================================
 # AGENT CONFIGURATION (opsional)
